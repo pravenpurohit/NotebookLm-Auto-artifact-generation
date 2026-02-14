@@ -61,7 +61,7 @@ async def add_template(
     if existing:
         await sm.update_template_content(existing["id"], content)
         existing["content"] = content
-        existing["content_edited"] = True
+        existing["content_edited"] = existing.get("content_edited", False) or (existing.get("content", "") != content)
         return existing
 
     template_id = str(uuid.uuid4())
@@ -108,3 +108,16 @@ async def update_template_exclusion(
         "template_id": template_id,
         "is_excluded": body.is_excluded,
     }
+
+@router.delete("/{template_id}")
+async def delete_template(
+    template_id: str,
+    sm: StateManager = Depends(get_state_manager),
+):
+    """Delete a template by ID."""
+    found = await sm.delete_template(template_id)
+    if not found:
+        raise HTTPException(status_code=404, detail="Template not found")
+    return {"status": "deleted", "template_id": template_id}
+
+

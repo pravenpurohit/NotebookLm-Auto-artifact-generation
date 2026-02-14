@@ -459,12 +459,16 @@ class StateManager:
             await self._release_db(db)
 
     async def update_template_content(self, template_id: str, content: str) -> bool:
-        """Update a template's prompt content. Returns True if found."""
+        """Update a template's prompt content. Returns True if found.
+
+        Only sets content_edited = TRUE if the content actually changed.
+        """
         db = await self._get_db()
         try:
+            # Only mark as edited if content is actually different
             cursor = await db.execute(
-                "UPDATE templates SET content = ?, content_edited = TRUE WHERE id = ?",
-                (content, template_id),
+                "UPDATE templates SET content = ?, content_edited = CASE WHEN content != ? THEN TRUE ELSE content_edited END WHERE id = ?",
+                (content, content, template_id),
             )
             await db.commit()
             return cursor.rowcount > 0
@@ -483,6 +487,19 @@ class StateManager:
             return cursor.rowcount > 0
         finally:
             await self._release_db(db)
+    async def delete_template(self, template_id: str) -> bool:
+        """Delete a template by ID. Returns True if found and deleted."""
+        db = await self._get_db()
+        try:
+            cursor = await db.execute(
+                "DELETE FROM templates WHERE id = ?",
+                (template_id,),
+            )
+            await db.commit()
+            return cursor.rowcount > 0
+        finally:
+            await self._release_db(db)
+
 
     # ------------------------------------------------------------------
     # Targeted single-entity queries (avoids full load_state over-fetch)

@@ -125,7 +125,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     yield
 
     # --- Shutdown ---
-    logger.info("Shutting down – stopping task queue")
+    logger.info("Shutting down – cleaning up reauth and stopping task queue")
+    await auth_manager.cleanup_reauth()
     await task_queue.stop_all()
     await state_manager.close()
 

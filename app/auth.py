@@ -288,7 +288,7 @@ class AuthManager:
             )
 
             page = context.pages[0] if context.pages else context.new_page()
-            page.goto("https://notebooklm.google.com/")
+            page.goto("https://notebooklm.google.com/", wait_until="commit")
 
             status_queue.put(
                 ReauthStatus(
@@ -331,6 +331,7 @@ class AuthManager:
                     )
                     return
 
+                logger.debug("Polling URL: %s → is_login_complete=%s", current_url, is_login_complete(current_url))
                 if is_login_complete(current_url):
                     # Save storage state and signal success
                     context.storage_state(path=str(storage_path))

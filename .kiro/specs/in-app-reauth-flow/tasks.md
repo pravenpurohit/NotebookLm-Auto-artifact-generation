@@ -109,7 +109,7 @@ Add an in-app re-authentication flow so users can complete Google login from the
   - Note: unit tests for AuthManager (`test_auth_reauth.py`) are created in task 7.2 and will be validated at the final checkpoint.
 
 
-- [-] 4. Implement reauth routes and SSE streaming
+- [x] 4. Implement reauth routes and SSE streaming
   - [x] 4.1 Create `app/routes/reauth.py` with `POST /api/auth/reauth` endpoint
     - Return `{"session_id": ...}` on success
     - Return 409 if `auth_manager.reauth_active` is `True`
@@ -117,14 +117,14 @@ Add an in-app re-authentication flow so users can complete Google login from the
     - Use `Depends(get_auth_manager)` and `Depends(get_nlm_client)` for dependency injection
     - _Requirements: 1.1, 1.2, 1.3, 5.1_
 
-  - [~] 4.2 Implement `GET /api/auth/reauth/status/{session_id}` SSE endpoint
+  - [x] 4.2 Implement `GET /api/auth/reauth/status/{session_id}` SSE endpoint
     - Use `sse_starlette.sse.EventSourceResponse` to stream `ReauthStatus` events
     - Call `auth_manager.browser_login()` with a callback that yields SSE events
     - On `authenticated`: update `nlm_client.credentials`, call `nlm_client.reinit_client()`, emit final event
     - On terminal events (error/timeout/cancelled): emit event and close stream
     - _Requirements: 3.1, 3.2, 3.3, 4.1, 4.2_
 
-  - [~] 4.3 Register reauth router in `app/routes/__init__.py`
+  - [x] 4.3 Register reauth router in `app/routes/__init__.py`
     - Import `from app.routes.reauth import router as reauth_router`
     - Add `router.include_router(reauth_router)`
     - _Requirements: 1.1_
@@ -160,12 +160,13 @@ Add an in-app re-authentication flow so users can complete Google login from the
     - Mock Playwright at the `_run_playwright_login` boundary
     - _Requirements: 1.2, 3.2, 3.3, 3.4, 4.2, 4.3, 5.1_
 
-- [ ] 5. Checkpoint
+- [ ]* 5. Checkpoint
   - Ensure all tests pass (`pytest tests/unit/test_routes_reauth.py tests/property/test_prop_reauth.py`), ask the user if questions arise.
+  - Note: This checkpoint depends on optional test tasks (4.4–4.6). Skip if those tests were not implemented.
 
 
-- [-] 6. Update login page frontend
-  - [~] 6.1 Add "Re-authenticate with Google" button and status area to `app/templates/login.html`
+- [x] 6. Update login page frontend
+  - [x] 6.1 Add "Re-authenticate with Google" button and status area to `app/templates/login.html`
     - Add a secondary button below the existing "Sign in with Google" button, styled as outline/link
     - Add explanatory text: "Session expired? Open a browser to log in again."
     - Add a status indicator area with `aria-live="polite"` and `role="status"`
@@ -173,7 +174,7 @@ Add an in-app re-authentication flow so users can complete Google login from the
     - Ensure disabled button state uses a proper muted color (not just `opacity: 0.6`) to meet WCAG AA contrast ratio
     - _Requirements: 6.1, 6.2, 6.3, 6.4, 6.5_
 
-  - [~] 6.2 Implement reauth JavaScript on `app/templates/login.html`
+  - [x] 6.2 Implement reauth JavaScript on `app/templates/login.html`
     - `startReauth()`: POST to `/api/auth/reauth`, open `EventSource` to `/api/auth/reauth/status/{session_id}`
     - Update status indicator text for each phase (`browser_launched` → "Opening browser...", `waiting_for_login` → "Waiting for login... (Xs remaining)", etc.)
     - During `waiting_for_login` phase, display a countdown timer showing remaining seconds (start from known timeout value, decrement locally via `setInterval`)
@@ -184,13 +185,13 @@ Add an in-app re-authentication flow so users can complete Google login from the
     - Manage focus: after error/cancel, focus returns to reauth button; after redirect, browser handles focus naturally
     - _Requirements: 3.1, 3.2, 3.3, 3.4, 6.2, 6.3, 6.4, 6.5_
 
-- [-] 7. Add lifespan cleanup and wire everything together
-  - [~] 7.1 Update `app/main.py` lifespan shutdown to call `cleanup_reauth`
+- [x] 7. Add lifespan cleanup and wire everything together
+  - [x] 7.1 Update `app/main.py` lifespan shutdown to call `cleanup_reauth`
     - Add `await auth_manager.cleanup_reauth()` in the shutdown section, before `task_queue.stop_all()`
     - This prevents orphaned Chromium processes on server shutdown
     - _Requirements: 7.3_
 
-  - [~] 7.2 Add shared reauth test fixtures to `tests/conftest.py`
+  - [x] 7.2 Add shared reauth test fixtures to `tests/conftest.py`
     - Add a `mock_auth_manager` fixture that creates an `AuthManager` with Playwright stubbed out (SDK import mocked)
     - Add a `reauth_session_factory` fixture for creating `ReauthSession` instances with configurable state
     - Add a `mock_playwright_login` fixture that replaces `_run_playwright_login` with a function that pushes predetermined statuses to the queue
@@ -215,7 +216,8 @@ Add an in-app re-authentication flow so users can complete Google login from the
     - _Requirements: 2.1, 2.2_
 
 - [ ] 8. Final checkpoint
-  - Run full test suite (`pytest`), ensure all 316+ existing tests still pass plus new tests. Ask the user if questions arise.
+  - Run full test suite (`pytest`), ensure all 316+ existing tests still pass plus any new reauth tests. Ask the user if questions arise.
+  - Note: Optional test tasks (1.6, 2.5–2.7, 4.4–4.6, 7.3–7.4) may not have been implemented. Validate only tests that exist.
 
 ## Notes
 

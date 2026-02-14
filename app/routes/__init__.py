@@ -5,6 +5,7 @@ from __future__ import annotations
 from fastapi import APIRouter
 
 from app.routes.auth import router as auth_router
+from app.routes.reauth import router as reauth_router
 from app.routes.reports import router as reports_router
 from app.routes.templates import router as templates_router
 from app.routes.generation import router as generation_router
@@ -19,6 +20,7 @@ from app.routes.pages import router as pages_router
 router = APIRouter()
 
 router.include_router(auth_router)
+router.include_router(reauth_router)
 router.include_router(reports_router)
 router.include_router(templates_router)
 router.include_router(generation_router)

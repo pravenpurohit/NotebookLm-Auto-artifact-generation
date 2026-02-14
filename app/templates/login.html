@@ -99,6 +99,55 @@
     .login-btn.loading .spinner { display: inline-block; }
     .login-btn.loading .btn-label { display: none; }
     @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Reauth section */
+    .reauth-divider {
+      margin: 1.25rem 0 1rem;
+      color: #999;
+      font-size: 0.85rem;
+    }
+    .reauth-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      background: transparent;
+      color: #4285f4;
+      border: 1.5px solid #4285f4;
+      border-radius: 6px;
+      padding: 0.65rem 1.25rem;
+      font-size: 0.95rem;
+      cursor: pointer;
+      width: 100%;
+      min-height: 44px;
+      transition: background 0.15s, color 0.15s;
+    }
+    .reauth-btn:hover {
+      background: #eef3ff;
+    }
+    .reauth-btn:disabled {
+      color: #9ab0d6;
+      border-color: #c5d4ec;
+      background: #f5f7fb;
+      cursor: not-allowed;
+    }
+    .reauth-btn .spinner {
+      border-color: #4285f4;
+      border-top-color: transparent;
+    }
+    .reauth-btn.loading .spinner { display: inline-block; }
+    .reauth-btn.loading .btn-label { display: none; }
+    .reauth-status {
+      margin-top: 0.75rem;
+      padding: 0.6rem 0.75rem;
+      background: #f0f4ff;
+      border: 1px solid #c5d4ec;
+      border-radius: 6px;
+      color: #1a3a6e;
+      font-size: 0.9rem;
+      display: none;
+    }
+    .reauth-status.visible { display: block; }
   </style>
 </head>
 <body>
@@ -127,6 +176,23 @@
       <br>
       <button class="retry-link" id="retry-btn" type="button">Try again</button>
     </div>
+
+    <p class="reauth-divider">Session expired? Open a browser to log in again.</p>
+
+    <button
+      class="reauth-btn"
+      id="reauth-btn"
+      type="button"
+      aria-label="Re-authenticate with Google"
+      aria-describedby="reauth-status-area"
+    >
+      <span class="btn-label">Re-authenticate with Google</span>
+      <span class="spinner" aria-hidden="true"></span>
+    </button>
+
+    <div class="reauth-status" id="reauth-status-area" role="status" aria-live="polite">
+      <span id="reauth-status-message"></span>
+    </div>
   </div>
 
   <script>
@@ -135,6 +201,12 @@
       const errorArea = document.getElementById('error-area');
       const errorMessage = document.getElementById('error-message');
       const retryBtn = document.getElementById('retry-btn');
+      const reauthBtn = document.getElementById('reauth-btn');
+      const reauthStatusArea = document.getElementById('reauth-status-area');
+      const reauthStatusMessage = document.getElementById('reauth-status-message');
+
+      let eventSource = null;
+      let countdownInterval = null;
 
       function showError(msg) {
         errorMessage.textContent = msg;
@@ -154,6 +226,47 @@
           loginBtn.disabled = false;
         }
       }
+
+      function setReauthLoading(loading) {
+        if (loading) {
+          reauthBtn.classList.add('loading');
+          reauthBtn.disabled = true;
+        } else {
+          reauthBtn.classList.remove('loading');
+          reauthBtn.disabled = false;
+        }
+      }
+
+      function showReauthStatus(msg) {
+        reauthStatusMessage.textContent = msg;
+        reauthStatusArea.classList.add('visible');
+      }
+
+      function hideReauthStatus() {
+        reauthStatusArea.classList.remove('visible');
+      }
+
+      function clearCountdown() {
+        if (countdownInterval) {
+          clearInterval(countdownInterval);
+          countdownInterval = null;
+        }
+      }
+
+      function closeEventSource() {
+        if (eventSource) {
+          eventSource.close();
+          eventSource = null;
+        }
+        clearCountdown();
+      }
+
+      var phaseMessages = {
+        browser_launched: 'Opening browser...',
+        waiting_for_login: 'Waiting for login...',
+        login_detected: 'Completing authentication...',
+        authenticated: 'Authentication successful. Redirecting...'
+      };
 
       async function doLogin() {
         hideError();
@@ -175,8 +288,90 @@
         }
       }
 
+      async function startReauth() {
+        hideError();
+        hideReauthStatus();
+        setReauthLoading(true);
+
+        try {
+          var resp = await fetch('/api/auth/reauth', { method: 'POST' });
+          var data = await resp.json();
+
+          if (resp.status === 409) {
+            showError(data.detail || 'A re-authentication session is already in progress.');
+            setReauthLoading(false);
+            return;
+          }
+          if (resp.status === 503) {
+            showError(data.detail || 'Browser automation is not available.');
+            setReauthLoading(false);
+            return;
+          }
+          if (!resp.ok) {
+            showError(data.detail || 'Failed to start re-authentication.');
+            setReauthLoading(false);
+            return;
+          }
+
+          var sessionId = data.session_id;
+          showReauthStatus('Starting re-authentication...');
+
+          eventSource = new EventSource('/api/auth/reauth/status/' + sessionId);
+
+          eventSource.addEventListener('reauth_status', function (e) {
+            var status = JSON.parse(e.data);
+            var phase = status.phase;
+            var message = status.message;
+
+            if (phase === 'waiting_for_login') {
+              var remaining = 120;
+              showReauthStatus(message + ' (' + remaining + 's remaining)');
+              clearCountdown();
+              countdownInterval = setInterval(function () {
+                remaining--;
+                if (remaining > 0) {
+                  showReauthStatus('Waiting for login... (' + remaining + 's remaining)');
+                } else {
+                  clearCountdown();
+                }
+              }, 1000);
+            } else {
+              clearCountdown();
+              showReauthStatus(phaseMessages[phase] || message);
+            }
+
+            if (phase === 'authenticated') {
+              closeEventSource();
+              window.location.href = '/dashboard';
+              return;
+            }
+
+            if (phase === 'error' || phase === 'timeout' || phase === 'cancelled') {
+              closeEventSource();
+              hideReauthStatus();
+              showError(message || 'Re-authentication failed. Please try again.');
+              setReauthLoading(false);
+              reauthBtn.focus();
+            }
+          });
+
+          eventSource.onerror = function () {
+            closeEventSource();
+            hideReauthStatus();
+            showError('Connection lost during re-authentication. Please try again.');
+            setReauthLoading(false);
+            reauthBtn.focus();
+          };
+
+        } catch (err) {
+          showError('Unable to connect to the server. Check your network and try again.');
+          setReauthLoading(false);
+        }
+      }
+
       loginBtn.addEventListener('click', doLogin);
       retryBtn.addEventListener('click', doLogin);
+      reauthBtn.addEventListener('click', startReauth);
     })();
   </script>
 </body>

@@ -186,6 +186,26 @@
       return false;
     }
   }
+  async function deleteTemplate(id) {
+    var tpl = templates.find(function (t) { return t.id === id; });
+    var name = tpl ? (tpl.name || tpl.filename) : 'this template';
+    if (!confirm('Delete "' + name + '"?')) return;
+    try {
+      var resp = await fetch('/api/templates/' + id, { method: 'DELETE' });
+      if (!resp.ok) {
+        var err = await resp.json();
+        throw new Error(err.detail || 'Delete failed');
+      }
+      templates = templates.filter(function (t) { return t.id !== id; });
+      render();
+      updateSelectionCount();
+      announce('Deleted ' + name);
+    } catch (e) {
+      showError('Failed to delete: ' + e.message);
+    }
+  }
+
+
 
   /* ---------- render ---------- */
 
@@ -204,7 +224,8 @@
       '</label>' +
       '<span class="template-number">' + escapeHtml(String(t.number || '')) + '</span>' +
       '<span class="template-name">' + escapeHtml(t.name || t.filename) + editedBadge + audioBadge + '</span>' +
-      '<button class="btn btn-sm btn-edit-template" data-id="' + t.id + '" type="button" aria-label="Edit ' + escapeAttr(t.name || t.filename) + '">Edit</button>';
+      '<button class="btn btn-sm btn-edit-template" data-id="' + t.id + '" type="button" aria-label="Edit ' + escapeAttr(t.name || t.filename) + '">Edit</button>' +
+      '<button class="btn btn-sm btn-delete-template" data-id="' + t.id + '" type="button" aria-label="Delete ' + escapeAttr(t.name || t.filename) + '">✕</button>';
 
     return div;
   }
@@ -353,6 +374,9 @@
   groupsContainer.addEventListener('click', function (e) {
     if (e.target.classList.contains('btn-edit-template')) {
       openEditor(e.target.dataset.id);
+    }
+    if (e.target.classList.contains('btn-delete-template')) {
+      deleteTemplate(e.target.dataset.id);
     }
   });
 

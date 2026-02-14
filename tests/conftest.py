@@ -77,3 +77,73 @@ async def nlm_cleanup(request):
             logger.warning(
                 "Test cleanup failed for notebook %s: %s", nb_id, exc
             )
+
+
+# ---------------------------------------------------------------------------
+# Reauth test fixtures (Task 7.2)
+# ---------------------------------------------------------------------------
+
+import queue
+import threading
+from unittest.mock import MagicMock, patch
+
+import pytest
+
+from app.auth import AuthManager, ReauthPhase, ReauthSession, ReauthStatus
+
+
+@pytest.fixture
+def mock_auth_manager():
+    """Create an AuthManager with SDK and Playwright stubbed out.
+
+    The SDK import is mocked so ``_sdk_available`` is True and
+    ``_nlm_module`` is a MagicMock. Playwright is not imported.
+    """
+    with patch.object(AuthManager, "_try_import_sdk"):
+        mgr = AuthManager()
+        mgr._sdk_available = True
+        mgr._nlm_module = MagicMock()
+        mgr._playwright_available = True
+        yield mgr
+
+
+@pytest.fixture
+def reauth_session_factory():
+    """Factory for creating ReauthSession instances with configurable state."""
+
+    def _factory(
+        session_id: str = "test-session",
+        active: bool = True,
+        cancel: bool = False,
+    ) -> ReauthSession:
+        session = ReauthSession(session_id=session_id, active=active)
+        session._cancel = cancel
+        return session
+
+    return _factory
+
+
+@pytest.fixture
+def mock_playwright_login():
+    """Replace ``_run_playwright_login`` with a function that pushes
+    predetermined statuses to the queue.
+
+    Usage::
+
+        def test_something(mock_auth_manager, mock_playwright_login):
+            statuses = [
+                ReauthStatus(phase=ReauthPhase.BROWSER_LAUNCHED, message="ok"),
+                ReauthStatus(phase=ReauthPhase.LOGIN_DETECTED, message="done"),
+            ]
+            mock_playwright_login(mock_auth_manager, statuses)
+            # Now browser_login() will receive these statuses
+    """
+
+    def _setup(auth_manager: AuthManager, statuses: list[ReauthStatus]):
+        def fake_login(status_queue: queue.Queue, timeout: int) -> None:
+            for s in statuses:
+                status_queue.put(s)
+
+        auth_manager._run_playwright_login = fake_login  # type: ignore[assignment]
+
+    return _setup
