@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+
+{% block title %}File Browser – NotebookLM Dashboard{% endblock %}
+
+{% block content %}
+<section class="file-browser" aria-label="Report File Browser">
+
+  <!-- Upload area -->
+  <div class="upload-area" id="upload-area">
+    <h2>Add Report Files</h2>
+    <p>Select PDF or Markdown files to add as report sources.</p>
+    <form id="upload-form" enctype="multipart/form-data">
+      <label class="upload-label" for="file-input">
+        <span class="upload-icon" aria-hidden="true">📄</span>
+        <span>Choose PDF / MD files…</span>
+        <input
+          type="file"
+          id="file-input"
+          name="files"
+          multiple
+          accept=".pdf,.md"
+          aria-label="Select PDF or Markdown report files"
+        >
+      </label>
+    </form>
+    <div id="upload-feedback" role="status" aria-live="polite"></div>
+    <div class="upload-error" id="upload-error" role="alert" aria-live="polite"></div>
+  </div>
+
+  <!-- Batch actions for selected reports -->
+  <div class="report-actions" id="report-actions" style="display:none;" role="toolbar" aria-label="Report actions">
+    <span id="selection-count">0 selected</span>
+    <button class="btn btn-danger" id="btn-delete-selected" type="button">Delete Selected</button>
+  </div>
+
+  <!-- Report list -->
+  <div class="report-list-wrapper">
+    <h2>Active Reports</h2>
+    <table class="report-table" id="report-table" aria-label="Active reports">
+      <thead>
+        <tr>
+          <th scope="col"><input type="checkbox" id="select-all" aria-label="Select all reports"></th>
+          <th scope="col">Filename</th>
+          <th scope="col">Size</th>
+          <th scope="col">Last Modified</th>
+          <th scope="col">Notebook Name</th>
+          <th scope="col">Actions</th>
+        </tr>
+      </thead>
+      <tbody id="report-tbody">
+        <!-- rows rendered by JS -->
+      </tbody>
+    </table>
+    <p class="empty-msg" id="empty-msg">No reports added yet. Upload PDF or MD files above.</p>
+  </div>
+
+  <!-- Screen reader announcements for dynamic updates -->
+  <div id="file-browser-announcements" class="sr-only" aria-live="polite" role="status"></div>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+<script src="/static/js/file-browser.js"></script>
+{% endblock %}

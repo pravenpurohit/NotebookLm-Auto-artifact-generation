@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard – NotebookLM Dashboard{% endblock %}
+
+{% block content %}
+<section class="dashboard" aria-label="Artifact Generation Dashboard">
+
+  <!-- Batch control bar -->
+  <div class="batch-bar" role="toolbar" aria-label="Batch controls">
+    <button class="btn btn-batch" id="btn-start-all" type="button">Start All</button>
+    <button class="btn btn-batch" id="btn-pause" type="button">Pause</button>
+    <button class="btn btn-batch" id="btn-resume" type="button">Resume</button>
+    <button class="btn btn-batch" id="btn-stop-all" type="button">Stop All</button>
+    <button class="btn btn-batch" id="btn-retry-failed" type="button">Retry Failed</button>
+    <span class="batch-status" id="batch-status" aria-live="polite"></span>
+  </div>
+
+  <!-- WebSocket connection indicator -->
+  <div class="ws-indicator" id="ws-indicator" role="alert" aria-live="assertive" style="display:none;"></div>
+
+  <!-- Desktop: matrix grid -->
+  <div class="grid-wrapper" id="grid-wrapper">
+    <table class="status-grid" id="status-grid" role="grid" aria-label="Status Grid">
+      <thead>
+        <tr>
+          <th class="grid-corner" scope="col">Report \ Template</th>
+          <!-- template column headers rendered by JS -->
+        </tr>
+      </thead>
+      <tbody>
+        <!-- rows rendered by JS -->
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Mobile: card layout -->
+  <div class="card-list" id="card-list" aria-label="Status Cards">
+    <!-- cards rendered by JS -->
+  </div>
+
+  <!-- Tooltip (shared, positioned absolutely) -->
+  <div class="cell-tooltip" id="cell-tooltip" role="tooltip" aria-hidden="true">
+    <div class="tooltip-row"><span class="tooltip-label">Task ID:</span> <span id="tip-task-id">—</span></div>
+    <div class="tooltip-row"><span class="tooltip-label">Started:</span> <span id="tip-started">—</span></div>
+    <div class="tooltip-row"><span class="tooltip-label">Elapsed:</span> <span id="tip-elapsed">—</span></div>
+    <div class="tooltip-row tooltip-error"><span class="tooltip-label">Error:</span> <span id="tip-error">—</span></div>
+  </div>
+</section>
+
+<script>
+  // Pass server-rendered grid data to JS
+  window.__GRID_DATA__ = {{ grid_data | tojson }};
+</script>
+{% endblock %}
+
+{% block extra_js %}
+<!-- grid.js is already loaded in base.html; it reads window.__GRID_DATA__ on DOMContentLoaded -->
+{% endblock %}

@@ -1,0 +1,330 @@
+# Implementation Plan: UX Improvements
+
+## Overview
+
+UX improvements and new features implemented incrementally: (1) remote artifact display, (2) streamlined file upload, (3) notebook name preservation, (4) artifact deletion, (5) notebook deletion, (6) test cleanup, (7) duplicate notebook detection via content hashing, (8) duplicate prompt detection. Python (FastAPI) backend, vanilla JS frontend. Expert reviews (test, architecture, code, UX, BA/PO) run after implementation. Final steering reviews always run last.
+
+## Tasks
+
+- [x] 1. Add remote artifact fetching to backend
+  - [x] 1.1 Add `list_notebook_artifacts` method to `NotebookLMClientWrapper` in `app/nlm_client.py`
+    - Wrap the SDK's artifact listing for a given notebook_id
+    - Return list of dicts with id, name, type, created_at
+    - _Requirements: 1.1, 1.2_
+  - [x] 1.2 Add `GET /api/artifacts/remote` endpoint in `app/routes/artifacts.py`
+    - Call `nlm_client.list_notebooks()` then `list_notebook_artifacts()` for each
+    - Return flat list of `RemoteArtifactResponse` objects
+    - On NLM_Client failure, return `{"artifacts": [], "error": "..."}` so frontend can show banner
+    - _Requirements: 1.1, 1.2, 1.4_
+  - [x] 1.3 Add `RemoteArtifactResponse` model to `app/models.py`
+    - Fields: id, artifact_name, artifact_type, source_notebook_title, source_notebook_id, created_at, is_remote
+    - _Requirements: 1.2_
+  - [ ]* 1.4 Write property test for remote artifact response completeness
+    - **Property 1: Remote artifact response completeness**
+    - **Validates: Requirements 1.2**
+
+- [x] 2. Implement artifact merge and filtering on frontend
+  - [x] 2.1 Update `static/js/artifacts.js` to fetch both local and remote artifacts
+    - Fetch `/api/artifacts` and `/api/artifacts/remote` in parallel
+    - Implement `mergeArtifacts(local, remote)` function that deduplicates on `(source_notebook_id, artifact_name)`
+    - Show error banner if remote fetch fails
+    - _Requirements: 1.1, 1.3, 1.4_
+  - [x] 2.2 Update `app/templates/artifacts.html` to add error banner container
+    - Add a `<div id="remote-error-banner">` element hidden by default
+    - _Requirements: 1.4_
+  - [x] 2.3 Ensure filters apply to merged artifact list in `static/js/artifacts.js`
+    - Filter function operates on the unified list regardless of `is_remote` flag
+    - _Requirements: 1.5_
+  - [ ]* 2.4 Write property test for merge deduplication
+    - **Property 2: Merge deduplication produces no duplicates**
+    - **Validates: Requirements 1.3**
+  - [ ]* 2.5 Write property test for filter consistency
+    - **Property 3: Filters apply consistently across artifact sources**
+    - **Validates: Requirements 1.5**
+
+- [x] 3. Checkpoint - Ensure all tests pass
+  - Ensure all tests pass, ask the user if questions arise.
+
+- [x] 4. Streamline file browser upload flow
+  - [x] 4.1 Update `app/templates/file_browser.html` to remove Upload button and add feedback elements
+    - Remove the `<button id="upload-btn">` element
+    - Add `<div id="upload-feedback">` container for progress/success/error messages
+    - _Requirements: 2.1, 2.2, 2.3_
+  - [x] 4.2 Update `static/js/file-browser.js` to auto-upload on file selection
+    - Trigger upload in the `change` event handler of `file-input` instead of form submit
+    - Disable file input during upload, show progress indicator
+    - On success: show toast with uploaded filenames, auto-dismiss after 5 seconds
+    - On failure: show error with failed filenames and reason
+    - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 2.6_
+  - [ ]* 4.3 Write property test for success message containing filenames
+    - **Property 4: Success message contains all uploaded filenames**
+    - **Validates: Requirements 2.3**
+
+- [x] 5. Preserve user-customized notebook names
+  - [x] 5.1 Update `persist_reports` in `app/state_manager.py` to protect edited notebook names
+    - Change from `INSERT OR REPLACE` to a check-then-insert/update pattern
+    - If report ID exists and `notebook_name_edited` is True, skip updating `notebook_name`
+    - _Requirements: 3.2, 3.5_
+  - [x] 5.2 Update `static/js/file-browser.js` to append new reports instead of full re-render
+    - Add `appendReports(newReports)` function that creates and appends new `<tr>` elements
+    - Replace the `render()` call after upload with `appendReports(added)`
+    - Keep full `render()` for initial page load only
+    - _Requirements: 3.1, 3.3_
+  - [ ]* 5.3 Write property test for append preserving existing reports
+    - **Property 5: Appending new reports preserves existing reports**
+    - **Validates: Requirements 3.1, 3.3**
+  - [ ]* 5.4 Write property test for edited notebook name protection
+    - **Property 6: Edited notebook names are protected from overwrite**
+    - **Validates: Requirements 3.2, 3.5**
+  - [ ]* 5.5 Write property test for notebook name edit flag
+    - **Property 7: Editing a notebook name marks the report as user-edited**
+    - **Validates: Requirements 3.4**
+
+- [x] 6. Integration tests with test data files
+  - [x] 6.1 Write integration tests in `tests/unit/test_ux_improvements.py`
+    - Test upload of `tests/testdata/Sample Deep Research Report.md` and verify report created
+    - Test upload of `tests/testdata/Sample Notebooklm Prompt.md` and verify report created
+    - Test uploading both files, customizing notebook names, then uploading again — verify names preserved
+    - Test artifact listing returns local artifacts when remote fetch fails
+    - Test merge with no overlap and full overlap scenarios
+    - _Requirements: 1.4, 2.3, 2.4, 3.1, 3.2_
+
+- [x] 7. Final checkpoint - Ensure all tests pass
+  - Ensure all tests pass, ask the user if questions arise.
+
+- [x] 7a. Implement artifact deletion
+  - [x] 7a.1 Add `delete_artifact` method to `NotebookLMClientWrapper` in `app/nlm_client.py`
+    - Wrap the SDK's artifact deletion for a given notebook_id and artifact_id
+    - _Requirements: 4.3_
+  - [x] 7a.2 Add `delete_artifact_record` method to `StateManager` in `app/state_manager.py`
+    - Remove artifact record from database
+    - Delete artifact file from disk if it exists
+    - _Requirements: 4.2_
+  - [x] 7a.3 Add `DELETE /api/artifacts/{artifact_id}` endpoint in `app/routes/artifacts.py`
+    - For local artifacts: call state_manager.delete_artifact_record
+    - For remote artifacts (id starts with `remote-`): call nlm_client.delete_artifact
+    - Return 200 on success, error on failure
+    - _Requirements: 4.2, 4.3, 4.4_
+  - [x] 7a.4 Update `static/js/artifacts.js` to add delete button and confirmation
+    - Add delete button to each artifact row
+    - Show confirmation dialog before deletion
+    - On success, remove row from DOM without full reload
+    - _Requirements: 4.1, 4.5_
+  - [x] 7a.5 Write unit tests for artifact deletion
+    - Test local artifact deletion removes DB record
+    - Test remote artifact deletion calls NLM client
+    - Test deletion failure returns error
+    - _Requirements: 4.2, 4.3, 4.4_
+
+- [x] 7b. Implement notebook deletion
+  - [x] 7b.1 Add `delete_notebook` method to `NotebookLMClientWrapper` in `app/nlm_client.py`
+    - Wrap the SDK's notebook deletion
+    - _Requirements: 5.2_
+  - [x] 7b.2 Add `delete_notebook_records` method to `StateManager` in `app/state_manager.py`
+    - Remove all generation cells and artifacts associated with the notebook_id
+    - _Requirements: 5.3_
+  - [x] 7b.3 Add `DELETE /api/notebooks/{notebook_id}` endpoint in `app/routes/artifacts.py`
+    - Call nlm_client.delete_notebook
+    - Call state_manager.delete_notebook_records
+    - Return 200 on success
+    - _Requirements: 5.2, 5.3, 5.4_
+  - [x] 7b.4 Update `static/js/artifacts.js` to add notebook delete button
+    - Group artifacts by notebook in the UI
+    - Add delete notebook button with confirmation
+    - On success, remove all associated rows
+    - _Requirements: 5.1, 5.5_
+  - [x] 7b.5 Write unit tests for notebook deletion
+    - Test notebook deletion removes remote notebook
+    - Test cascade deletion of local records
+    - Test deletion failure returns error
+    - _Requirements: 5.2, 5.3, 5.4_
+
+- [x] 7c. Implement test cleanup for notebooks
+  - [x] 7c.1 Add `nlm_cleanup` pytest fixture in `tests/conftest.py`
+    - Track created notebook IDs during tests
+    - In teardown, delete each notebook via NLM client
+    - Log warnings for cleanup failures, do not fail tests
+    - _Requirements: 6.1, 6.2, 6.3_
+  - [x] 7c.2 Update existing integration tests to use the cleanup fixture
+    - Any test that creates notebooks should register IDs with the fixture
+    - _Requirements: 6.1_
+
+- [x] 7d. Implement duplicate notebook detection via content hashing
+  - [x] 7d.1 Add `content_hash` column to reports table in `app/state_manager.py`
+    - Add column via schema migration in `init_db`
+    - Compute SHA-256 hash on file upload
+    - Store hash alongside report record
+    - _Requirements: 7.1_
+  - [x] 7d.2 Update `persist_reports` to compute and store content hash
+    - Accept file content or path, compute SHA-256
+    - Include short hash suffix (first 8 chars) in auto-generated notebook name
+    - _Requirements: 7.1, 7.4_
+  - [x] 7d.3 Add duplicate detection check before notebook creation in `app/task_queue.py`
+    - Before creating notebook, check if a notebook with same content_hash exists
+    - If found, return warning with existing notebook info
+    - _Requirements: 7.2, 7.3_
+  - [x] 7d.4 Update remote notebook listing to flag "already linked" notebooks
+    - Parse notebook names for hash suffixes
+    - Match against local report content_hashes
+    - Add `is_linked` flag to remote notebook response
+    - _Requirements: 7.5_
+  - [x] 7d.5 Update frontend to show duplicate warnings and linked status
+    - Show warning dialog when duplicate detected
+    - Show "linked" badge on already-linked remote notebooks
+    - _Requirements: 7.3, 7.5_
+  - [x] 7d.6 Write unit tests for content hashing and duplicate detection
+    - Test hash computation is deterministic
+    - Test duplicate detection finds matching notebooks
+    - Test hash suffix in notebook name
+    - _Requirements: 7.1, 7.2, 7.4_
+
+- [x] 7e. Implement duplicate prompt detection
+  - [x] 7e.1 Add `prompt_hash` column to generation_cells table in `app/state_manager.py`
+    - Add column via schema migration in `init_db`
+    - _Requirements: 8.1_
+  - [x] 7e.2 Update generation flow to compute and check prompt hash
+    - Before submitting generation, compute SHA-256 of template content
+    - Check if completed cell exists with same (report_id, prompt_hash)
+    - If found, return warning with existing artifact info
+    - _Requirements: 8.1, 8.2, 8.3_
+  - [x] 7e.3 Update frontend to show duplicate prompt warnings
+    - Show dialog with options: skip, regenerate, or view existing
+    - _Requirements: 8.3_
+  - [x] 7e.4 Ensure edited templates produce new prompt hashes
+    - When template content is edited, the hash changes on next generation
+    - _Requirements: 8.4_
+  - [x] 7e.5 Write unit tests for prompt hashing and duplicate detection
+    - Test hash changes when content changes
+    - Test duplicate detection finds matching completed cells
+    - Test edited prompts are treated as new
+    - _Requirements: 8.1, 8.2, 8.4_
+
+- [x] 7f. Checkpoint - Ensure all tests pass after new features
+  - Run all tests, fix any failures
+
+- [x] 8. Test expert review — audit test coverage and update testing standards
+  - [x] 8.1 Review all existing tests against requirements and design correctness properties
+    - Identify gaps: untested acceptance criteria, missing edge cases, missing property tests
+    - Cross-reference each requirement (1.1–1.5, 2.1–2.6, 3.1–3.5) against test coverage
+    - Review tests in `tests/unit/` and `tests/property/` for quality per `.kiro/steering/testing-standards.md`
+  - [x] 8.2 Add missing test cases to close coverage gaps
+    - Write new unit tests for any untested acceptance criteria
+    - Write new property tests for any untested correctness properties from the design
+    - Ensure all tests pass after additions
+  - [x] 8.3 Update `.kiro/steering/testing-standards.md` with findings
+    - Add any new patterns, anti-patterns, or guidelines discovered during the review
+    - Document any project-specific testing conventions that emerged
+
+- [x] 9. Senior architect review — audit architecture, tech debt, and fix issues
+  - [x] 9.1 Review full codebase architecture against `.kiro/steering/architecture-guidelines.md`
+    - Check for new tech debt introduced by the UX improvements
+    - Verify separation of concerns (routes, state manager, client, frontend)
+    - Check for N+1 queries, connection handling, error propagation patterns
+    - Review data flow: frontend → API → state manager → DB
+  - [x] 9.2 Fix identified architectural issues
+    - Address any tech debt, code smells, or structural problems found
+    - Ensure all fixes maintain backward compatibility
+    - Run all tests after fixes
+  - [x] 9.3 Update `.kiro/steering/architecture-guidelines.md` with findings
+    - Add new sections for any architectural patterns introduced
+    - Document any new tech debt items for future resolution
+    - Update completed/pending action items
+
+- [x] 10. Senior code reviewer — audit all code and update code review standards
+  - [x] 10.1 Review all changed files against `.kiro/steering/code-review-standards.md`
+    - Security: input validation, SQL injection, path traversal, XSS
+    - Correctness: async/await usage, error handling, edge cases
+    - Performance: connection handling, query patterns, resource cleanup
+    - Code quality: naming, DRY, dead code, type annotations
+  - [x] 10.2 Fix identified code issues
+    - Fix any security, correctness, or quality issues found
+    - Run all tests after fixes
+  - [x] 10.3 Update `.kiro/steering/code-review-standards.md` with findings
+    - Add any new checklist items discovered during review
+    - Document project-specific patterns and anti-patterns
+
+- [x] 11. Senior UX designer review — audit all UI and update UX standards
+  - [x] 11.1 Review all frontend changes against `.kiro/steering/ui-ux-standards.md`
+    - Artifacts page: remote artifact display, error banner, merge behavior, filter UX
+    - File browser: auto-upload flow, progress indicator, success toast, error messages
+    - File browser: notebook name preservation, append-only rendering
+    - Check accessibility: ARIA labels, keyboard navigation, focus management
+    - Check responsive behavior: mobile layout, touch targets, table stacking
+  - [x] 11.2 Fix identified UX issues
+    - Fix any accessibility, usability, or visual issues found
+    - Ensure consistent styling across all pages
+    - Run all tests after fixes
+  - [x] 11.3 Update `.kiro/steering/ui-ux-standards.md` with findings
+    - Add any new guidelines discovered during review
+    - Document project-specific UX patterns
+
+- [x] 12. Second-pass steering reviews — re-run all reviews to catch misses
+  - [x] 12.1 Re-run test expert review (task 8) on current codebase
+    - Verify all gaps from first pass are closed
+    - Check that fixes from tasks 9-11 didn't break test coverage
+  - [x] 12.2 Re-run architect review (task 9) on current codebase
+    - Verify architectural fixes are solid
+    - Check for any new tech debt from review fixes
+  - [x] 12.3 Re-run code review (task 10) on current codebase
+    - Verify all code issues are resolved
+    - Check that review fixes didn't introduce new issues
+  - [x] 12.4 Re-run UX review (task 11) on current codebase
+    - Verify all UX issues are resolved
+    - Check that fixes didn't introduce new visual regressions
+  - [x] 12.5 Senior BA/PO review — audit requirements and test cases
+    - Review all requirements against `.kiro/steering/ba-product-owner-review.md`
+    - Identify missing user journeys, edge cases, and acceptance criteria
+    - Verify every acceptance criterion has a corresponding test case
+    - Check for missing CRUD operations, feedback, validation, and error handling
+    - Add any missing requirements or acceptance criteria to `requirements.md`
+    - Add any missing test cases
+    - Update `.kiro/steering/ba-product-owner-review.md` with findings
+
+- [x] 13. Live application testing with test data
+  - [x] 13.1 Start the application and verify it runs without errors
+    - Run `python3 -m uvicorn app.main:app --host 0.0.0.0 --port 8000`
+    - Verify all pages load: login, dashboard, file browser, artifacts
+  - [x] 13.2 Test file browser flow with test data
+    - Upload test data files via the file browser
+    - Verify auto-upload triggers on file selection
+    - Verify progress indicator and success toast appear
+    - Verify uploaded files appear in the report list
+    - Edit notebook names, then upload more files — verify edited names are preserved
+  - [x] 13.3 Test artifacts page with live NotebookLM data
+    - Navigate to artifacts page
+    - Verify remote notebooks/artifacts are fetched and displayed
+    - Verify filters work on both local and remote artifacts
+    - Verify error banner appears gracefully if remote fetch fails
+  - [x] 13.4 Fix any defects found during live testing
+    - Document and fix each defect
+    - Run all tests after fixes
+  - [x] 13.5 Re-run all steering reviews (tasks 8-11) after defect fixes
+    - Ensure fixes don't introduce new issues
+    - Update steering files if new patterns emerge
+
+- [x] 14. Final validation checkpoint
+  - Run all tests, verify all steering standards are up to date, confirm application works end-to-end
+
+- [x] 15. Final steering reviews — run ALL steering reviews as the last step
+  - [x] 15.1 Run test expert review against `.kiro/steering/testing-standards.md`
+  - [x] 15.2 Run architect review against `.kiro/steering/architecture-guidelines.md`
+  - [x] 15.3 Run code review against `.kiro/steering/code-review-standards.md`
+  - [x] 15.4 Run UX review against `.kiro/steering/ui-ux-standards.md`
+  - [x] 15.5 Run BA/PO review against `.kiro/steering/ba-product-owner-review.md`
+  - [x] 15.6 Fix any issues found, run all tests, update steering files
+  - This task MUST always be the last task executed before sign-off
+
+## Notes
+
+- Tasks marked with `*` are optional and can be skipped for faster MVP
+- Each task references specific requirements for traceability
+- Checkpoints ensure incremental validation
+- Property tests validate universal correctness properties using Hypothesis
+- Unit/integration tests use the sample test data files in `tests/testdata/`
+- The existing test infrastructure (Hypothesis, pytest, async helpers) is reused
+- Tasks 7a-7e implement new features: deletion, cleanup, and duplicate detection
+- Tasks 8-11 are expert role reviews that audit and improve quality
+- Task 12 includes BA/PO review for requirements completeness
+- Task 13 requires a running application with live NotebookLM credentials
+- Task 14 is the validation checkpoint
+- Task 15 (final steering reviews) MUST always be the last task — never skip it

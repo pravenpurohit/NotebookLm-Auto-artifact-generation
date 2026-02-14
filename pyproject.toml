@@ -1,0 +1,14 @@
+[project]
+name = "notebooklm-dashboard"
+version = "0.1.0"
+description = "Generate NotebookLM artifacts from deep research reports"
+requires-python = ">=3.10"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+
+# markers are registered via pytest-asyncio plugin automatically

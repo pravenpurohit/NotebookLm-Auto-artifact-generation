@@ -1,0 +1,971 @@
+/* ================================================================
+   NotebookLM Dashboard – styles.css
+   Responsive: 320px → 2560px, breakpoint at 768px
+   Requirements: 12.1, 12.2, 12.3, 12.4
+   ================================================================ */
+
+/* ── Reset & Base ─────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  background: #f5f6fa;
+  color: #1a1a2e;
+  line-height: 1.5;
+  -webkit-text-size-adjust: 100%;
+}
+
+/* ── Skip Link (a11y) ─────────────────────────────────────────── */
+.skip-link {
+  position: absolute;
+  top: -100%;
+  left: 0;
+  background: #4285f4;
+  color: #fff;
+  padding: 0.5rem 1rem;
+  z-index: 1000;
+  font-size: 0.9rem;
+  text-decoration: none;
+  border-radius: 0 0 6px 0;
+}
+
+.skip-link:focus {
+  top: 0;
+}
+
+/* ── Header / Nav ─────────────────────────────────────────────── */
+.app-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.75rem 1.25rem;
+  background: #1a1a2e;
+  color: #fff;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.app-logo {
+  font-weight: 700;
+  font-size: 1.1rem;
+  color: #fff;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.app-nav {
+  display: flex;
+  gap: 0.25rem;
+  margin-left: auto;
+}
+
+.nav-link {
+  color: rgba(255, 255, 255, 0.75);
+  text-decoration: none;
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  transition: background 0.15s, color 0.15s;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+}
+
+.nav-link:hover,
+.nav-link:focus-visible { background: rgba(255, 255, 255, 0.12); color: #fff; }
+.nav-link.active { background: rgba(255, 255, 255, 0.18); color: #fff; }
+
+/* ── Buttons ──────────────────────────────────────────────────── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  background: #fff;
+  color: #374151;
+  font-size: 0.875rem;
+  padding: 0.5rem 1rem;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+  min-height: 44px;
+  min-width: 44px;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.btn:hover { background: #f3f4f6; border-color: #9ca3af; }
+.btn:focus-visible { outline: 2px solid #4285f4; outline-offset: 2px; }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.btn-sm { font-size: 0.8rem; padding: 0.35rem 0.65rem; min-height: 36px; }
+.btn-xs { font-size: 0.75rem; padding: 0.25rem 0.5rem; min-height: 32px; min-width: 32px; }
+
+.btn-primary {
+  background: #4285f4;
+  color: #fff;
+  border-color: #4285f4;
+}
+.btn-primary:hover { background: #3367d6; border-color: #3367d6; }
+
+.btn-danger {
+  background: #ef4444;
+  color: #fff;
+  border-color: #ef4444;
+}
+.btn-danger:hover { background: #dc2626; border-color: #dc2626; }
+
+.btn-batch {
+  background: #1a1a2e;
+  color: #fff;
+  border-color: #1a1a2e;
+}
+.btn-batch:hover { background: #2d2d4a; }
+
+/* Cell action buttons */
+.btn-start { color: #16a34a; border-color: #16a34a; }
+.btn-start:hover { background: #f0fdf4; }
+.btn-stop { color: #ef4444; border-color: #ef4444; }
+.btn-stop:hover { background: #fef2f2; }
+.btn-retry { color: #f59e0b; border-color: #f59e0b; }
+.btn-retry:hover { background: #fffbeb; }
+.btn-download { color: #4285f4; border-color: #4285f4; text-decoration: none; }
+.btn-download:hover { background: #eff6ff; }
+
+/* ── Main Content ─────────────────────────────────────────────── */
+.app-content {
+  max-width: 1600px;
+  margin: 0 auto;
+  padding: 1.25rem;
+}
+
+/* ── Dashboard / Batch Bar ────────────────────────────────────── */
+.batch-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+}
+
+.batch-status {
+  margin-left: auto;
+  font-size: 0.85rem;
+  color: #6b7280;
+}
+
+/* ── Status Grid (Desktop) ────────────────────────────────────── */
+.grid-wrapper {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.status-grid {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+  table-layout: auto;
+}
+
+.status-grid th,
+.status-grid td {
+  padding: 0.5rem 0.65rem;
+  border: 1px solid #e5e7eb;
+  text-align: left;
+  vertical-align: middle;
+}
+
+.status-grid thead th {
+  background: #f9fafb;
+  font-weight: 600;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  white-space: nowrap;
+}
+
+.grid-corner {
+  min-width: 160px;
+}
+
+.status-grid tbody th {
+  background: #f9fafb;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+/* Grid cells */
+.grid-cell {
+  position: relative;
+  min-width: 120px;
+  cursor: default;
+  transition: box-shadow 0.15s;
+}
+
+.grid-cell:hover {
+  box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.15);
+}
+
+.cell-status-label {
+  display: block;
+  font-size: 0.78rem;
+  font-weight: 500;
+  margin-bottom: 0.2rem;
+}
+
+.cell-controls {
+  display: inline-flex;
+  gap: 0.25rem;
+}
+
+/* ── Status Colors ────────────────────────────────────────────── */
+.status-not_started { background-color: #e0e0e0; }
+.status-pending     { background-color: #fff3cd; }
+.status-in_progress { background-color: #cce5ff; }
+.status-completed   { background-color: #d4edda; }
+.status-failed      { background-color: #f8d7da; }
+.status-stopped     { background-color: #e2e3e5; }
+
+/* ── Tooltip ──────────────────────────────────────────────────── */
+.cell-tooltip {
+  position: absolute;
+  z-index: 200;
+  background: #1a1a2e;
+  color: #fff;
+  border-radius: 8px;
+  padding: 0.65rem 0.85rem;
+  font-size: 0.8rem;
+  max-width: 320px;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(4px);
+  transition: opacity 0.15s, transform 0.15s;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+}
+
+.cell-tooltip.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.tooltip-row {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.15rem 0;
+}
+
+.tooltip-label {
+  font-weight: 600;
+  white-space: nowrap;
+  opacity: 0.8;
+}
+
+.tooltip-error { color: #fca5a5; }
+
+/* ── Mobile Card Layout (< 768px) ────────────────────────────── */
+.card-list {
+  display: none;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.status-card {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-left: 4px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  transition: box-shadow 0.15s;
+}
+
+.status-card:active {
+  box-shadow: 0 0 0 2px rgba(66, 133, 244, 0.3);
+}
+
+.card-header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  margin-bottom: 0.5rem;
+}
+
+.card-report {
+  font-size: 0.9rem;
+}
+
+.card-template {
+  font-size: 0.8rem;
+  color: #6b7280;
+}
+
+.card-body {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.card-status {
+  display: inline-block;
+  padding: 0.2rem 0.6rem;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+/* ── File Browser ─────────────────────────────────────────────── */
+.file-browser h2 {
+  font-size: 1.25rem;
+  margin: 0 0 0.75rem;
+}
+
+.upload-area {
+  background: #fff;
+  border: 2px dashed #d1d5db;
+  border-radius: 10px;
+  padding: 1.5rem;
+  text-align: center;
+  margin-bottom: 1.5rem;
+  transition: border-color 0.15s;
+}
+
+.upload-area:hover,
+.upload-area:focus-within {
+  border-color: #4285f4;
+}
+
+.upload-area h2 { margin-top: 0; }
+.upload-area p { color: #6b7280; margin: 0 0 1rem; }
+
+.upload-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  color: #4285f4;
+  font-weight: 500;
+}
+
+.upload-label input[type="file"] {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+}
+
+.upload-icon { font-size: 1.5rem; }
+
+.upload-error {
+  display: none;
+  margin-top: 0.75rem;
+  padding: 0.6rem 1rem;
+  background: #fef2f2;
+  border: 1px solid #fca5a5;
+  border-radius: 6px;
+  color: #b91c1c;
+  font-size: 0.85rem;
+}
+
+/* Upload feedback (progress / success toast) */
+#upload-feedback {
+  margin-top: 0.75rem;
+  font-size: 0.85rem;
+}
+
+#upload-feedback:empty {
+  display: none;
+}
+
+.upload-progress {
+  padding: 0.6rem 1rem;
+  background: #eff6ff;
+  border: 1px solid #93c5fd;
+  border-radius: 6px;
+  color: #1e40af;
+}
+
+.upload-success {
+  padding: 0.6rem 1rem;
+  background: #f0fdf4;
+  border: 1px solid #86efac;
+  border-radius: 6px;
+  color: #166534;
+}
+
+.report-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0;
+  margin-bottom: 0.5rem;
+  font-size: 0.9rem;
+  color: #374151;
+}
+
+.report-list-wrapper { margin-top: 0.5rem; }
+
+.report-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+  background: #fff;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid #e5e7eb;
+}
+
+.report-table th,
+.report-table td {
+  padding: 0.6rem 0.75rem;
+  border-bottom: 1px solid #e5e7eb;
+  text-align: left;
+  vertical-align: middle;
+}
+
+.report-table thead th {
+  background: #f9fafb;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.notebook-name-input {
+  width: 100%;
+  min-width: 140px;
+  padding: 0.35rem 0.5rem;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  min-height: 36px;
+}
+
+.notebook-name-input:focus {
+  outline: none;
+  border-color: #4285f4;
+  box-shadow: 0 0 0 2px rgba(66, 133, 244, 0.2);
+}
+
+.empty-msg {
+  text-align: center;
+  color: #9ca3af;
+  padding: 2rem 1rem;
+  font-size: 0.9rem;
+}
+
+/* ── Remote Error Banner ───────────────────────────────────────── */
+.remote-error-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.65rem 1rem;
+  margin-bottom: 1rem;
+  background: #fef2f2;
+  border: 1px solid #fca5a5;
+  border-radius: 8px;
+  color: #b91c1c;
+  font-size: 0.875rem;
+}
+
+.btn-dismiss-banner {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1.15rem;
+  color: #b91c1c;
+  padding: 0.15rem 0.35rem;
+  line-height: 1;
+  border-radius: 4px;
+  min-height: 32px;
+  min-width: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-dismiss-banner:hover {
+  background: rgba(185, 28, 28, 0.1);
+}
+
+/* ── Artifact Browser ─────────────────────────────────────────── */
+.artifact-browser h2 {
+  font-size: 1.25rem;
+  margin: 0 0 0.75rem;
+}
+
+.artifact-filters {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 1rem 1.25rem;
+  margin-bottom: 1rem;
+}
+
+.filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.75rem;
+}
+
+.filter-row label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: #374151;
+  flex: 1;
+  min-width: 140px;
+}
+
+.filter-row input,
+.filter-row select {
+  padding: 0.45rem 0.6rem;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  min-height: 40px;
+}
+
+.filter-row input:focus,
+.filter-row select:focus {
+  outline: none;
+  border-color: #4285f4;
+  box-shadow: 0 0 0 2px rgba(66, 133, 244, 0.2);
+}
+
+.artifact-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+  background: #fff;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid #e5e7eb;
+}
+
+.artifact-table th,
+.artifact-table td {
+  padding: 0.6rem 0.75rem;
+  border-bottom: 1px solid #e5e7eb;
+  text-align: left;
+  vertical-align: middle;
+}
+
+.artifact-table thead th {
+  background: #f9fafb;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* Badges */
+.badge {
+  display: inline-block;
+  padding: 0.15rem 0.55rem;
+  border-radius: 10px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.badge-info  { background: #dbeafe; color: #1e40af; }
+.badge-audio { background: #fef3c7; color: #92400e; }
+.badge-video { background: #ede9fe; color: #5b21b6; }
+
+/* Preview panel */
+.artifact-preview {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 1rem 1.25rem;
+  margin-top: 1rem;
+}
+
+.preview-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+}
+
+.preview-header h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.preview-content img,
+.preview-content video {
+  max-width: 100%;
+  border-radius: 6px;
+}
+
+.preview-content audio {
+  width: 100%;
+}
+
+/* ── Notebook Group Header (Finding 11.1) ─────────────────────── */
+.notebook-group-header td {
+  font-weight: bold;
+  background: #f5f5f5;
+  padding: 0.5rem 0.75rem;
+}
+
+/* ── Badge variants (Findings 8.5, 11.1, 11.3) ───────────────── */
+.badge-linked {
+  background: #28a745;
+  color: #fff;
+  font-size: 0.7rem;
+  margin-left: 0.25rem;
+}
+
+.badge-remote {
+  font-size: 0.7rem;
+  opacity: 0.7;
+}
+
+/* ── Delete button consistency (Finding 11.2) ─────────────────── */
+.btn-delete {
+  background: #ef4444;
+  color: #fff;
+  border-color: #ef4444;
+}
+.btn-delete:hover {
+  background: #dc2626;
+  border-color: #dc2626;
+}
+
+/* ── Toast dismiss button (Finding 5.1) ───────────────────────── */
+.btn-dismiss-toast {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1.1rem;
+  color: inherit;
+  padding: 0 0.35rem;
+  margin-left: 0.5rem;
+  line-height: 1;
+  border-radius: 4px;
+  opacity: 0.7;
+  vertical-align: middle;
+}
+.btn-dismiss-toast:hover {
+  opacity: 1;
+}
+
+/* ── Confirmation Modal (Finding 5.5) ─────────────────────────── */
+.confirm-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  z-index: 500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.confirm-modal {
+  background: #fff;
+  border-radius: 10px;
+  padding: 1.5rem;
+  max-width: 420px;
+  width: 90%;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+}
+
+.confirm-modal h3 {
+  margin: 0 0 0.5rem;
+  font-size: 1.05rem;
+}
+
+.confirm-modal p {
+  margin: 0 0 1.25rem;
+  color: #4b5563;
+  font-size: 0.9rem;
+}
+
+.confirm-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+/* ── Loading Spinner (Finding 5.4) ─────────────────────────────── */
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.loading-spinner {
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  border: 2px solid #d1d5db;
+  border-top-color: #4285f4;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+  vertical-align: middle;
+  margin-right: 0.4rem;
+}
+
+/* ── Visually Hidden (a11y) ───────────────────────────────────── */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ── Responsive: Mobile (< 768px) ─────────────────────────────── */
+@media (max-width: 767px) {
+  /* Header stacks vertically */
+  .app-header {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    padding: 0.6rem 1rem;
+  }
+
+  .app-nav {
+    order: 3;
+    width: 100%;
+    margin-left: 0;
+    justify-content: center;
+  }
+
+  .nav-link {
+    flex: 1;
+    justify-content: center;
+    min-height: 44px;
+    font-size: 0.85rem;
+  }
+
+  #logout-btn {
+    margin-left: auto;
+  }
+
+  /* Content padding */
+  .app-content {
+    padding: 0.75rem;
+  }
+
+  /* Grid hidden, cards shown */
+  .grid-wrapper { display: none !important; }
+  .card-list    { display: flex !important; }
+
+  /* Batch bar wraps */
+  .batch-bar {
+    gap: 0.4rem;
+    padding: 0.6rem;
+  }
+
+  .btn-batch {
+    flex: 1;
+    min-width: 0;
+    font-size: 0.78rem;
+    padding: 0.5rem 0.4rem;
+    min-height: 44px;
+  }
+
+  .batch-status {
+    width: 100%;
+    text-align: center;
+    margin-left: 0;
+  }
+
+  /* Touch-friendly cell action buttons (44px min) */
+  .btn-xs {
+    min-height: 44px;
+    min-width: 44px;
+    font-size: 1rem;
+    padding: 0.4rem 0.6rem;
+  }
+
+  /* File browser table → stacked */
+  .report-table thead { display: none; }
+
+  .report-table,
+  .report-table tbody,
+  .report-table tr,
+  .report-table td {
+    display: block;
+    width: 100%;
+  }
+
+  .report-table tr {
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    margin-bottom: 0.5rem;
+    padding: 0.5rem;
+    background: #fff;
+  }
+
+  .report-table td {
+    border-bottom: none;
+    padding: 0.3rem 0.5rem;
+  }
+
+  .report-table td::before {
+    content: attr(data-label);
+    font-weight: 600;
+    display: block;
+    font-size: 0.75rem;
+    color: #6b7280;
+    margin-bottom: 0.1rem;
+  }
+
+  /* Artifact table → stacked */
+  .artifact-table thead { display: none; }
+
+  .artifact-table,
+  .artifact-table tbody,
+  .artifact-table tr,
+  .artifact-table td {
+    display: block;
+    width: 100%;
+  }
+
+  .artifact-table tr {
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    margin-bottom: 0.5rem;
+    padding: 0.5rem;
+    background: #fff;
+  }
+
+  .artifact-table td {
+    border-bottom: none;
+    padding: 0.3rem 0.5rem;
+  }
+
+  /* Finding 7.1: data-label pseudo-element for artifact table on mobile */
+  .artifact-table td::before {
+    content: attr(data-label);
+    font-weight: 600;
+    display: block;
+    font-size: 0.75rem;
+    color: #6b7280;
+    margin-bottom: 0.1rem;
+  }
+
+  /* Finding 7.2: Notebook group header adapts on mobile */
+  .artifact-table tr.notebook-group-header {
+    background: #f5f5f5;
+    border-left: 4px solid #4285f4;
+  }
+
+  .artifact-table tr.notebook-group-header td {
+    font-weight: bold;
+    padding: 0.6rem 0.75rem;
+  }
+
+  .artifact-table tr.notebook-group-header td::before {
+    display: none;
+  }
+
+  /* Touch-friendly buttons inside artifact table on mobile */
+  .artifact-table .btn-sm {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* Touch-friendly buttons inside report table on mobile */
+  .report-table .btn-sm {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* Filter row stacks */
+  .filter-row {
+    flex-direction: column;
+  }
+
+  .filter-row label {
+    min-width: 100%;
+  }
+
+  .filter-row .btn {
+    width: 100%;
+    min-height: 44px;
+  }
+
+  /* Upload area */
+  .upload-area {
+    padding: 1rem;
+  }
+
+  .upload-area .btn {
+    width: 100%;
+    min-height: 44px;
+  }
+}
+
+/* ── Large screens (> 1600px) ─────────────────────────────────── */
+@media (min-width: 1601px) {
+  .app-content {
+    max-width: 2200px;
+  }
+}
+
+/* ── Focus visible for keyboard nav ──────────────────────────── */
+:focus-visible {
+  outline: 2px solid #4285f4;
+  outline-offset: 2px;
+}
+
+/* ── WebSocket Indicator ──────────────────────────────────────── */
+.ws-indicator {
+  background: #fef3c7;
+  border: 1px solid #f59e0b;
+  border-radius: 6px;
+  padding: 0.5rem 1rem;
+  margin-bottom: 1rem;
+  font-size: 0.85rem;
+  color: #92400e;
+  text-align: center;
+}
+
+/* ── Batch Status Dismiss ─────────────────────────────────────── */
+.btn-dismiss-status {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1rem;
+  color: #6b7280;
+  padding: 0 0.25rem;
+  margin-left: 0.25rem;
+  vertical-align: middle;
+}
+
+.btn-dismiss-status:hover {
+  color: #374151;
+}
+
+/* ── Scrollbar styling ────────────────────────────────────────── */
+.grid-wrapper::-webkit-scrollbar {
+  height: 6px;
+}
+
+.grid-wrapper::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 3px;
+}
+
+.grid-wrapper::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 3px;
+}
+
+.grid-wrapper::-webkit-scrollbar-thumb:hover {
+  background: #a1a1a1;
+}

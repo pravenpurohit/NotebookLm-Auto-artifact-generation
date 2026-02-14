@@ -1,0 +1,48 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# macOS
+.DS_Store
+
+# SQLite
+*.db
+*.db-shm
+*.db-wal
+
+# Hypothesis PBT cache
+.hypothesis/
+
+# pytest
+.pytest_cache/
+
+# Environment
+.env
+.env.*
+
+# Output artifacts
+output/
+
+# Data (keep structure via .gitkeep)
+data/*
+!data/.gitkeep
+!data/uploads/
+data/uploads/*
+!data/uploads/.gitkeep

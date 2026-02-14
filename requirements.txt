@@ -1,0 +1,12 @@
+fastapi
+uvicorn
+jinja2
+python-multipart
+aiosqlite
+websockets
+notebooklm-py>=0.3.2
+pydantic
+hypothesis
+pytest
+pytest-asyncio
+pytest-mock
