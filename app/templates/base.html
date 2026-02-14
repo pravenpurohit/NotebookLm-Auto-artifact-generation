@@ -14,6 +14,8 @@
     <nav class="app-nav" aria-label="Main navigation">
       <a href="/dashboard" class="nav-link{% if active_page == 'dashboard' %} active{% endif %}">Dashboard</a>
       <a href="/files" class="nav-link{% if active_page == 'files' %} active{% endif %}">File Browser</a>
+      <a href="/prompts" class="nav-link{% if active_page == 'prompts' %} active{% endif %}">Prompts</a>
+      <a href="/processing" class="nav-link{% if active_page == 'processing' %} active{% endif %}">Processing</a>
       <a href="/artifacts" class="nav-link{% if active_page == 'artifacts' %} active{% endif %}">Artifacts</a>
     </nav>
     <button id="logout-btn" class="btn btn-sm" hx-post="/api/auth/logout" hx-swap="none" hx-on::after-request="window.location='/'">Logout</button>

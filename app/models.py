@@ -103,6 +103,10 @@ class UpdateTemplateRequest(BaseModel):
     content: str
 
 
+class UpdateTemplateExclusionRequest(BaseModel):
+    is_excluded: bool
+
+
 class RemoteArtifactResponse(BaseModel):
     """A remote artifact fetched from the user's NotebookLM account.
 

@@ -1,0 +1,24 @@
+{
+  "enabled": true,
+  "name": "Steering Review on Change",
+  "description": "When specs (requirements.md, design.md, tasks.md), steering files, or application code changes, automatically identifies which steering reviews are relevant to the changed file and runs those reviews, fixing any issues found.\n\nMapping logic:\n- requirements.md changes → run 01-business-leader-review, 02-ba-product-owner-review\n- design.md changes → run 02-ba-product-owner-review, 03-technical-leader-review, 04-architecture-guidelines\n- tasks.md changes → run 02-ba-product-owner-review, 03-technical-leader-review\n- app/**/*.py changes → run 04-architecture-guidelines, 05-code-review-standards\n- app/templates/**/*.html or static/**/* changes → run 06-ui-ux-standards, 07-usability-review\n- tests/**/*.py changes → run 08-testing-standards\n- spec requirements.md/design.md with user-facing flows → run 07-usability-review\n- steering file changes → run the changed steering file itself against the current codebase",
+  "version": "1",
+  "when": {
+    "type": "fileEdited",
+    "patterns": [
+      ".kiro/specs/**/*.md",
+      ".kiro/steering/*.md",
+      "app/**/*.py",
+      "app/templates/**/*.html",
+      "static/**/*.css",
+      "static/**/*.js",
+      "tests/**/*.py"
+    ]
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "A file was just edited. Determine which steering reviews are relevant based on the file that changed, then run those reviews and fix any issues.\n\nUse this mapping to decide which steering files to review:\n\n1. If a requirements.md file changed → Read and apply .kiro/steering/01-business-leader-review.md and .kiro/steering/02-ba-product-owner-review.md against the changed file and its parent spec folder.\n\n2. If a design.md file changed → Read and apply .kiro/steering/03-technical-leader-review.md and .kiro/steering/04-architecture-guidelines.md against the changed file and related code.\n\n3. If a tasks.md file changed → Read and apply .kiro/steering/02-ba-product-owner-review.md and .kiro/steering/03-technical-leader-review.md to verify task alignment with requirements and design.\n\n4. If an app/**/*.py file changed → Read and apply .kiro/steering/04-architecture-guidelines.md and .kiro/steering/05-code-review-standards.md against the changed code file.\n\n5. If an HTML template (app/templates/**) or static asset (static/**) changed → Read and apply .kiro/steering/06-ui-ux-standards.md and .kiro/steering/07-usability-review.md against the changed file.\n\n6. If a test file (tests/**/*.py) changed → Read and apply .kiro/steering/08-testing-standards.md against the changed test file.\n\n7. If a steering file itself changed → Re-read the updated steering file and validate it against the current codebase for consistency.\n\n8. If a spec requirements.md or design.md file changed that describes user-facing flows → Read and apply .kiro/steering/07-usability-review.md to verify the described flows meet usability heuristics.\n\nFor each relevant steering file:\n- Read the steering file content\n- Review the changed file against the steering checklist/standards\n- Identify any violations or gaps\n- Fix the issues directly in the code/spec files\n- Briefly summarize what was reviewed and what was fixed"
+  },
+  "workspaceFolderName": "NotebookLm Auto artifact generation",
+  "shortName": "steering-review-on-change"
+}

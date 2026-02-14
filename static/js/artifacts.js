@@ -46,66 +46,6 @@
     }
   }
 
-  /**
-   * Show a custom confirmation modal instead of browser confirm() (Finding 5.5).
-   * Returns a Promise that resolves to true (confirm) or false (cancel).
-   */
-  function showConfirmModal(title, message, confirmLabel, cancelLabel) {
-    return new Promise(function (resolve) {
-      var overlay = document.createElement('div');
-      overlay.className = 'confirm-modal-overlay';
-      overlay.setAttribute('role', 'dialog');
-      overlay.setAttribute('aria-modal', 'true');
-      overlay.setAttribute('aria-label', title);
-
-      var modal = document.createElement('div');
-      modal.className = 'confirm-modal';
-
-      var h3 = document.createElement('h3');
-      h3.textContent = title;
-      modal.appendChild(h3);
-
-      var p = document.createElement('p');
-      p.textContent = message;
-      modal.appendChild(p);
-
-      var actions = document.createElement('div');
-      actions.className = 'confirm-modal-actions';
-
-      var cancelBtn = document.createElement('button');
-      cancelBtn.className = 'btn';
-      cancelBtn.type = 'button';
-      cancelBtn.textContent = cancelLabel || 'Cancel';
-
-      var confirmBtn = document.createElement('button');
-      confirmBtn.className = 'btn btn-danger';
-      confirmBtn.type = 'button';
-      confirmBtn.textContent = confirmLabel || 'Delete';
-
-      actions.appendChild(cancelBtn);
-      actions.appendChild(confirmBtn);
-      modal.appendChild(actions);
-      overlay.appendChild(modal);
-      document.body.appendChild(overlay);
-
-      confirmBtn.focus();
-
-      function cleanup(result) {
-        document.body.removeChild(overlay);
-        resolve(result);
-      }
-
-      confirmBtn.addEventListener('click', function () { cleanup(true); });
-      cancelBtn.addEventListener('click', function () { cleanup(false); });
-      overlay.addEventListener('click', function (e) {
-        if (e.target === overlay) cleanup(false);
-      });
-      overlay.addEventListener('keydown', function (e) {
-        if (e.key === 'Escape') cleanup(false);
-      });
-    });
-  }
-
   /* ---------- error banner ---------- */
 
   function showErrorBanner(message) {

@@ -4,8 +4,9 @@ jinja2
 python-multipart
 aiosqlite
 websockets
-notebooklm-py>=0.3.2
+notebooklm-py==0.3.2
 pydantic
+sse-starlette==2.3.6
 hypothesis
 pytest
 pytest-asyncio

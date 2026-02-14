@@ -133,36 +133,42 @@ class TestSDKCallChain:
 
     @pytest.mark.asyncio
     async def test_nlm_client_create_notebook_calls_sdk(self):
-        """NotebookLMClientWrapper.create_notebook should call the underlying SDK client."""
+        """NotebookLMClientWrapper.create_notebook should call the underlying SDK sub-APIs."""
         creds = SessionCredentials(cookies={"sid": "test"}, csrf_token="tok", session_id="sess")
         wrapper = NotebookLMClientWrapper(creds)
 
-        # Mock the internal SDK client with spec= to catch attribute typos
+        # Mock the internal SDK client with sub-API pattern
         mock_sdk_client = MagicMock()
         mock_notebook = MagicMock()
         mock_notebook.id = "nb-test-123"
-        mock_sdk_client.create_notebook = AsyncMock(return_value=mock_notebook)
-        mock_sdk_client.add_source = AsyncMock()
+        mock_sdk_client.notebooks = MagicMock()
+        mock_sdk_client.notebooks.create = AsyncMock(return_value=mock_notebook)
+        mock_sdk_client.sources = MagicMock()
+        mock_sdk_client.sources.add_file = AsyncMock()
+        mock_sdk_client.artifacts = MagicMock()
         wrapper._client = mock_sdk_client
 
         result = await wrapper.create_notebook(name="Test NB", source_path="/test.pdf")
 
         assert result == "nb-test-123"
-        mock_sdk_client.create_notebook.assert_called_once_with(title="Test NB")
-        mock_sdk_client.add_source.assert_called_once_with(
+        mock_sdk_client.notebooks.create.assert_called_once_with(title="Test NB")
+        mock_sdk_client.sources.add_file.assert_called_once_with(
             notebook_id="nb-test-123", file_path="/test.pdf"
         )
 
     @pytest.mark.asyncio
     async def test_nlm_client_submit_generation_calls_sdk(self):
-        """submit_generation should forward to the SDK client.generate()."""
+        """submit_generation should forward to the SDK client.artifacts.generate_*()."""
         creds = SessionCredentials(cookies={"sid": "test"}, csrf_token="tok", session_id="sess")
         wrapper = NotebookLMClientWrapper(creds)
 
         mock_sdk_client = MagicMock()
         mock_result = MagicMock()
         mock_result.task_id = "task-abc"
-        mock_sdk_client.generate = AsyncMock(return_value=mock_result)
+        mock_sdk_client.artifacts = MagicMock()
+        mock_sdk_client.artifacts.generate_infographic = AsyncMock(return_value=mock_result)
+        mock_sdk_client.notebooks = MagicMock()
+        mock_sdk_client.sources = MagicMock()
         wrapper._client = mock_sdk_client
 
         result = await wrapper.submit_generation(
@@ -171,25 +177,35 @@ class TestSDKCallChain:
         )
 
         assert result == "task-abc"
-        mock_sdk_client.generate.assert_called_once()
+        mock_sdk_client.artifacts.generate_infographic.assert_called_once_with(
+            notebook_id="nb-1", instructions="test prompt"
+        )
 
     @pytest.mark.asyncio
     async def test_nlm_client_poll_status_calls_sdk(self):
-        """poll_status should call SDK's get_task_status and return a dict."""
+        """poll_status should call SDK's artifacts.poll_status and return a dict."""
         creds = SessionCredentials(cookies={"sid": "test"}, csrf_token="tok", session_id="sess")
         wrapper = NotebookLMClientWrapper(creds)
 
         mock_sdk_client = MagicMock()
-        mock_sdk_client.get_task_status = AsyncMock(
-            return_value={"status": "completed", "progress": 100, "error": None}
-        )
+        mock_status = MagicMock()
+        mock_status.status = "completed"
+        mock_status.is_in_progress = False
+        mock_status.error = None
+        mock_status.is_complete = True
+        mock_status.is_failed = False
+        mock_sdk_client.artifacts = MagicMock()
+        mock_sdk_client.artifacts.poll_status = AsyncMock(return_value=mock_status)
+        mock_sdk_client.notebooks = MagicMock()
+        mock_sdk_client.sources = MagicMock()
         wrapper._client = mock_sdk_client
 
-        result = await wrapper.poll_status("task-xyz")
+        result = await wrapper.poll_status("nb-1", "task-xyz")
 
         assert result["status"] == "completed"
-        assert result["progress"] == 100
-        mock_sdk_client.get_task_status.assert_called_once_with(task_id="task-xyz")
+        mock_sdk_client.artifacts.poll_status.assert_called_once_with(
+            notebook_id="nb-1", task_id="task-xyz"
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -248,8 +264,11 @@ class TestAsyncReturnTypes:
         mock_client = MagicMock()
         mock_nb = MagicMock()
         mock_nb.id = "nb-42"
-        mock_client.create_notebook = AsyncMock(return_value=mock_nb)
-        mock_client.add_source = AsyncMock()
+        mock_client.notebooks = MagicMock()
+        mock_client.notebooks.create = AsyncMock(return_value=mock_nb)
+        mock_client.sources = MagicMock()
+        mock_client.sources.add_file = AsyncMock()
+        mock_client.artifacts = MagicMock()
         wrapper._client = mock_client
 
         result = await wrapper.create_notebook("test", "/test.pdf")
@@ -263,12 +282,19 @@ class TestAsyncReturnTypes:
         wrapper = NotebookLMClientWrapper(creds)
 
         mock_client = MagicMock()
-        mock_client.get_task_status = AsyncMock(
-            return_value={"status": "completed", "progress": 100, "error": None}
-        )
+        mock_status = MagicMock()
+        mock_status.status = "completed"
+        mock_status.is_in_progress = False
+        mock_status.error = None
+        mock_status.is_complete = True
+        mock_status.is_failed = False
+        mock_client.artifacts = MagicMock()
+        mock_client.artifacts.poll_status = AsyncMock(return_value=mock_status)
+        mock_client.notebooks = MagicMock()
+        mock_client.sources = MagicMock()
         wrapper._client = mock_client
 
-        result = await wrapper.poll_status("task-1")
+        result = await wrapper.poll_status("nb-1", "task-1")
         assert not inspect.iscoroutine(result), "Result should not be a coroutine object"
         assert isinstance(result, dict)
 
@@ -279,9 +305,133 @@ class TestAsyncReturnTypes:
         wrapper = NotebookLMClientWrapper(creds)
 
         mock_client = MagicMock()
-        mock_client.list_notebooks = AsyncMock(return_value=[])
+        mock_client.notebooks = MagicMock()
+        mock_client.notebooks.list = AsyncMock(return_value=[])
+        mock_client.artifacts = MagicMock()
+        mock_client.sources = MagicMock()
         wrapper._client = mock_client
 
         result = await wrapper.list_notebooks()
         assert not inspect.iscoroutine(result), "Result should not be a coroutine object"
         assert isinstance(result, list)
+
+
+# ---------------------------------------------------------------------------
+# ZIP download endpoint (AC 10.4)
+# ---------------------------------------------------------------------------
+
+
+class TestZipDownload:
+    """Tests for GET /api/artifacts/download-all."""
+
+    def test_download_all_returns_404_when_no_completed(self, tmp_path):
+        """Should return 404 when no completed artifacts exist."""
+        import app.main as main_mod
+
+        db_path = str(tmp_path / "zip_test.db")
+        original = main_mod.DB_PATH
+        main_mod.DB_PATH = db_path
+        try:
+            app = create_app()
+            with TestClient(app) as client:
+                resp = client.get("/api/artifacts/download-all")
+                assert resp.status_code == 404
+        finally:
+            main_mod.DB_PATH = original
+
+    def test_download_all_returns_valid_zip(self, tmp_path):
+        """Should return a valid ZIP with completed artifact files."""
+        import zipfile as zf
+        import io
+        import app.main as main_mod
+
+        db_path = str(tmp_path / "zip_test.db")
+
+        # Create output dir with a fake artifact
+        output_dir = tmp_path / "output" / "infographics"
+        output_dir.mkdir(parents=True)
+        artifact_file = output_dir / "test.png"
+        artifact_file.write_bytes(b"fake png data")
+
+        original = main_mod.DB_PATH
+        main_mod.DB_PATH = db_path
+        try:
+            app = create_app()
+            with TestClient(app) as client:
+                # Seed data via the app's own state_manager (after lifespan init)
+                sm = app.state.state_manager
+
+                import asyncio
+                from app.state_manager import GenerationCell, CellStatus
+
+                async def seed():
+                    await sm.persist_reports([{
+                        "id": "r1", "filename": "report.pdf", "filepath": "/path/report.pdf",
+                        "file_size": 100, "last_modified": None, "notebook_name": "report",
+                        "notebook_name_edited": False, "created_at": None, "content_hash": None,
+                    }])
+                    await sm.persist_templates([{
+                        "id": "t1", "filename": "02_Test.md", "number": 2,
+                        "artifact_type": "infographic", "name": "Test",
+                        "audio_format": None, "content": "content",
+                        "content_edited": False, "is_excluded": False,
+                    }])
+                    cell = GenerationCell(
+                        report_id="r1", template_id="t1",
+                        status=CellStatus.COMPLETED, task_id="task-1",
+                        artifact_path=str(artifact_file),
+                    )
+                    await sm.update_cell(cell)
+
+                asyncio.run(seed())
+
+                with patch("app.routes.artifacts._OUTPUT_BASE", str(tmp_path / "output")):
+                    resp = client.get("/api/artifacts/download-all")
+
+                assert resp.status_code == 200
+                assert resp.headers["content-type"] == "application/zip"
+
+                buf = io.BytesIO(resp.content)
+                with zf.ZipFile(buf) as z:
+                    names = z.namelist()
+                    assert len(names) >= 1
+                    assert any("test.png" in n for n in names)
+        finally:
+            main_mod.DB_PATH = original
+
+
+# ---------------------------------------------------------------------------
+# Page route tests (AC 11.2, 11.4)
+# ---------------------------------------------------------------------------
+
+
+class TestPageRoutes:
+    """Tests for /prompts and /processing page routes."""
+
+    def _create_test_app(self, db_path):
+        import app.main as main_mod
+        original = main_mod.DB_PATH
+        main_mod.DB_PATH = db_path
+        app = create_app()
+        main_mod.DB_PATH = original
+        return app
+
+    def test_prompts_page_returns_200(self, tmp_path):
+        """GET /prompts should return 200 with HTML content."""
+        db_path = str(tmp_path / "page_test.db")
+        app = self._create_test_app(db_path)
+        with TestClient(app) as client:
+            resp = client.get("/prompts")
+            assert resp.status_code == 200
+            assert "text/html" in resp.headers["content-type"]
+            assert "Prompt Template" in resp.text
+
+    def test_processing_page_returns_200(self, tmp_path):
+        """GET /processing should return 200 with HTML content."""
+        db_path = str(tmp_path / "page_test.db")
+        app = self._create_test_app(db_path)
+        with TestClient(app) as client:
+            resp = client.get("/processing")
+            assert resp.status_code == 200
+            assert "text/html" in resp.headers["content-type"]
+            assert "Processing" in resp.text

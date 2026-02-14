@@ -969,3 +969,251 @@ body {
 .grid-wrapper::-webkit-scrollbar-thumb:hover {
   background: #a1a1a1;
 }
+
+/* ── Prompt Browser ───────────────────────────────────────────── */
+.prompts-page h2 { font-size: 1.25rem; margin: 0 0 0.75rem; }
+
+/* Drop zone */
+.drop-zone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 2rem 1rem;
+  border: 2px dashed #d1d5db;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+  background: #fafbfc;
+}
+
+.drop-zone:hover,
+.drop-zone:focus-visible {
+  border-color: #4285f4;
+  background: #eff6ff;
+}
+
+.drop-zone.drag-over {
+  border-color: #4285f4;
+  background: #dbeafe;
+}
+
+.drop-zone .upload-icon { font-size: 2rem; }
+.drop-zone-label { color: #6b7280; font-size: 0.9rem; }
+
+/* Prompt upload feedback */
+#prompt-upload-feedback { margin-top: 0.75rem; font-size: 0.85rem; }
+#prompt-upload-feedback:empty { display: none; }
+#prompt-upload-error { margin-top: 0.75rem; }
+
+/* Prompt toolbar */
+.prompt-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.75rem 0;
+  margin: 1rem 0 0.5rem;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.prompt-toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.selection-badge {
+  font-size: 0.85rem;
+  color: #6b7280;
+  margin-left: 0.25rem;
+}
+
+/* Template groups */
+.template-group {
+  margin-bottom: 1.25rem;
+}
+
+.template-group-heading {
+  font-size: 1rem;
+  margin: 0 0 0.5rem;
+  padding: 0.4rem 0;
+  border-bottom: 1px solid #e5e7eb;
+  color: #374151;
+}
+
+.template-group-count {
+  font-weight: 400;
+  color: #9ca3af;
+  font-size: 0.85rem;
+}
+
+/* Template row */
+.template-row {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid #f3f4f6;
+  transition: background 0.1s;
+}
+
+.template-row:hover { background: #f9fafb; }
+.template-row.excluded { opacity: 0.55; }
+
+.template-check-label {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+}
+
+.template-check {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+}
+
+.template-number {
+  font-size: 0.8rem;
+  color: #9ca3af;
+  min-width: 2rem;
+  text-align: right;
+}
+
+.template-name {
+  flex: 1;
+  font-size: 0.9rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.badge-edited {
+  background: #fef3c7;
+  color: #92400e;
+  font-size: 0.7rem;
+  margin-left: 0.35rem;
+  vertical-align: middle;
+}
+
+.btn-edit-template {
+  flex-shrink: 0;
+}
+
+/* Inline editor */
+.prompt-editor {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 1rem 1.25rem;
+  margin-top: 1rem;
+}
+
+.prompt-editor-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+}
+
+.prompt-editor-header h3 { margin: 0; font-size: 1rem; }
+
+.prompt-editor-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+#editor-textarea {
+  width: 100%;
+  padding: 0.65rem;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  font-size: 0.85rem;
+  line-height: 1.6;
+  resize: vertical;
+  min-height: 200px;
+}
+
+#editor-textarea:focus {
+  outline: none;
+  border-color: #4285f4;
+  box-shadow: 0 0 0 2px rgba(66, 133, 244, 0.2);
+}
+
+.editor-validation {
+  margin-top: 0.5rem;
+  font-size: 0.85rem;
+  color: #b91c1c;
+}
+
+/* Responsive: mobile prompts */
+@media (max-width: 767px) {
+  .prompt-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.5rem;
+  }
+
+  .prompt-toolbar-left {
+    justify-content: center;
+  }
+
+  #btn-start-processing {
+    text-align: center;
+  }
+
+  .template-row {
+    flex-wrap: wrap;
+  }
+
+  .template-name {
+    min-width: 0;
+    flex-basis: calc(100% - 5rem);
+  }
+}
+
+/* ── Processing Page ──────────────────────────────────────────── */
+.processing-page .batch-bar { margin-bottom: 0.75rem; }
+
+/* Progress summary bar */
+.progress-summary {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.6rem 1rem;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+  font-size: 0.85rem;
+  color: #374151;
+}
+
+.progress-bar-track {
+  flex: 1;
+  height: 8px;
+  background: #e5e7eb;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  background: #4285f4;
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+/* Sticky first column for wide matrices */
+.sticky-col {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: #f9fafb;
+}
+
+@media (max-width: 767px) {
+  .progress-summary { flex-direction: column; gap: 0.5rem; }
+  .progress-bar-track { width: 100%; }
+}

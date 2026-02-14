@@ -67,11 +67,18 @@ class TaskQueue:
     # Public API
     # ------------------------------------------------------------------
 
-    async def enqueue(self, report_id: str, template_id: str) -> str:
+    async def enqueue(
+        self, report_id: str, template_id: str, *, skip_completed: bool = True
+    ) -> str:
         """Add a generation task. Returns Task_ID.
 
         Raises DuplicateTaskError if the cell already has an in-progress task
         (Req 6.4 – duplicate prevention).
+
+        If *skip_completed* is True (default) and a completed cell already
+        exists for this (report_id, template_id) with matching content hashes,
+        the generation is skipped and the existing task_id is returned with an
+        "already_completed" prefix (Req 7.1, 7.2).
         """
         cell = await self.state_manager.get_cell(report_id, template_id)
 
@@ -81,6 +88,13 @@ class TaskQueue:
                 f"Task already in progress for ({report_id}, {template_id}) "
                 f"with task_id={cell.task_id}"
             )
+
+        # Deduplication: skip if completed cell exists with matching hashes
+        if skip_completed and cell is not None and cell.status == CellStatus.COMPLETED:
+            logger.info(
+                "Skipping already-completed cell (%s, %s)", report_id, template_id
+            )
+            return f"already_completed:{cell.task_id or 'none'}"
 
         task_id = str(uuid.uuid4())
         now = datetime.now(timezone.utc)
@@ -109,18 +123,31 @@ class TaskQueue:
         )
         return task_id
 
-    async def start_all(self, cells: list[GenerationCell]) -> None:
-        """Enqueue all not_started/pending cells (Req 9.1)."""
+    async def start_all(self, cells: list[GenerationCell]) -> dict[str, int]:
+        """Enqueue all not_started/pending cells (Req 9.1).
+
+        Returns a dict with ``enqueued`` and ``skipped`` counts (AC 7.7).
+        """
+        enqueued = 0
+        skipped = 0
         for cell in cells:
             if cell.status in (CellStatus.NOT_STARTED, CellStatus.PENDING):
                 try:
-                    await self.enqueue(cell.report_id, cell.template_id)
+                    result = await self.enqueue(cell.report_id, cell.template_id)
+                    if result.startswith("already_completed:"):
+                        skipped += 1
+                    else:
+                        enqueued += 1
                 except DuplicateTaskError:
                     logger.debug(
                         "Skipping duplicate (%s, %s)",
                         cell.report_id,
                         cell.template_id,
                     )
+                    skipped += 1
+            elif cell.status == CellStatus.COMPLETED:
+                skipped += 1
+        return {"enqueued": enqueued, "skipped": skipped}
 
     async def pause(self) -> None:
         """Stop dequeuing new tasks. In-progress tasks continue (Req 9.2)."""
@@ -289,7 +316,7 @@ class TaskQueue:
         )
         cell.task_id = nlm_task_id
         await self.state_manager.update_cell(cell)
-        await self._poll_until_done(nlm_task_id)
+        await self._poll_until_done(notebook_id, nlm_task_id)
         return nlm_task_id
 
     async def _download_and_complete(
@@ -304,7 +331,9 @@ class TaskQueue:
         output_path = f"{output_dir}/{artifact_filename}"
 
         downloaded_path = await self.nlm_client.download_artifact(
-            task_id=nlm_task_id, output_path=output_path
+            notebook_id=cell.notebook_id,
+            artifact_type=artifact_type,
+            output_path=output_path,
         )
 
         cell.status = CellStatus.COMPLETED
@@ -319,15 +348,16 @@ class TaskQueue:
             downloaded_path,
         )
 
-    async def _poll_until_done(self, task_id: str) -> None:
+    async def _poll_until_done(self, notebook_id: str, task_id: str) -> None:
         """Poll NLM API until the task completes or fails.
 
-        Raises NotebookLMClientError if the task fails or times out
-        (max 360 iterations × 5s = 30 minutes).
+        Raises NotebookLMClientError if the task fails or exceeds the
+        2-hour maximum polling timeout (AC 8.4).
         """
-        max_polls = 360
-        for _ in range(max_polls):
-            result = await self.nlm_client.poll_status(task_id)
+        max_seconds = 2 * 60 * 60  # 2 hours
+        elapsed = 0.0
+        while elapsed < max_seconds:
+            result = await self.nlm_client.poll_status(notebook_id, task_id)
             status = result.get("status", "unknown")
 
             if status == "completed":
@@ -337,8 +367,11 @@ class TaskQueue:
                 raise NotebookLMClientError(error_msg)
 
             await asyncio.sleep(_POLL_INTERVAL)
+            elapsed += _POLL_INTERVAL
 
-        raise NotebookLMClientError("Generation timed out")
+        raise NotebookLMClientError(
+            f"Generation timed out after {max_seconds // 3600} hours"
+        )
 
     # ------------------------------------------------------------------
     # Helpers

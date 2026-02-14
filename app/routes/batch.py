@@ -18,8 +18,12 @@ async def batch_start(
 ):
     """Start all not_started/pending generation tasks (Req 9.1)."""
     cells = await sm.get_all_cells()
-    await tq.start_all(cells)
-    return {"status": "batch_started"}
+    counts = await tq.start_all(cells)
+    return {
+        "status": "batch_started",
+        "enqueued": counts["enqueued"],
+        "skipped": counts["skipped"],
+    }
 
 
 @router.post("/pause")

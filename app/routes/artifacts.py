@@ -3,13 +3,15 @@
 from __future__ import annotations
 
 import asyncio
+import io
 import os
 import pathlib
 import re
+import zipfile
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 
 from app.dependencies import get_nlm_client, get_state_manager
 from app.models import RemoteArtifactResponse
@@ -105,6 +107,46 @@ async def list_remote_artifacts(
         artifacts.extend(result)
 
     return {"artifacts": artifacts}
+
+
+@router.get("/download-all")
+async def download_all_artifacts(
+    sm: StateManager = Depends(get_state_manager),
+):
+    """Stream a ZIP of all completed artifacts for offline use (AC 10.4).
+
+    Validates each artifact path stays within the output directory.
+    Returns 404 if no completed artifacts exist.
+    """
+    cells = await sm.get_all_cells()
+    completed = [c for c in cells if c.status.value == "completed" and c.artifact_path]
+
+    if not completed:
+        raise HTTPException(status_code=404, detail="No completed artifacts to download")
+
+    output_base = pathlib.Path(_OUTPUT_BASE).resolve()
+
+    def _build_zip() -> io.BytesIO:
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+            for cell in completed:
+                fpath = pathlib.Path(cell.artifact_path).resolve()
+                if not fpath.is_relative_to(output_base):
+                    continue
+                if not fpath.is_file():
+                    continue
+                arcname = fpath.relative_to(output_base)
+                zf.write(str(fpath), str(arcname))
+        buf.seek(0)
+        return buf
+
+    zip_buf = await asyncio.to_thread(_build_zip)
+
+    return StreamingResponse(
+        zip_buf,
+        media_type="application/zip",
+        headers={"Content-Disposition": "attachment; filename=artifacts.zip"},
+    )
 
 
 @router.delete("/{artifact_id}")

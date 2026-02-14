@@ -422,3 +422,128 @@ async def test_semaphore_limits_concurrency(state_manager, db_path):
     assert max_seen <= 2
 
     await tq.stop_all()
+
+
+# ---------------------------------------------------------------------------
+# Deduplication (Req 7.1, 7.2, 7.7)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_enqueue_skips_completed_cell(state_manager, db_path):
+    """enqueue should skip generation for an already-completed cell."""
+    await _seed(db_path)
+    client = _mock_nlm_client()
+    tq = TaskQueue(state_manager, client, max_concurrent=2)
+
+    # Set cell to completed
+    cell = GenerationCell(
+        report_id="r1", template_id="t1",
+        status=CellStatus.COMPLETED, task_id="done-task",
+        artifact_path="/output/test.png",
+    )
+    await state_manager.update_cell(cell)
+
+    result = await tq.enqueue("r1", "t1")
+    assert result.startswith("already_completed:")
+
+    # Cell should still be completed
+    c = await state_manager.get_cell("r1", "t1")
+    assert c.status == CellStatus.COMPLETED
+
+    await tq.stop_all()
+
+
+@pytest.mark.asyncio
+async def test_enqueue_skip_completed_can_be_overridden(state_manager, db_path):
+    """enqueue with skip_completed=False should re-run a completed cell."""
+    await _seed(db_path)
+    client = _mock_nlm_client()
+    tq = TaskQueue(state_manager, client, max_concurrent=2)
+
+    cell = GenerationCell(
+        report_id="r1", template_id="t1",
+        status=CellStatus.COMPLETED, task_id="done-task",
+    )
+    await state_manager.update_cell(cell)
+
+    result = await tq.enqueue("r1", "t1", skip_completed=False)
+    assert not result.startswith("already_completed:")
+
+    await tq.wait_for("r1", "t1")
+    await tq.stop_all()
+
+
+@pytest.mark.asyncio
+async def test_start_all_returns_skip_counts(state_manager, db_path):
+    """start_all should return enqueued and skipped counts (AC 7.7)."""
+    await _seed(db_path, "r1", "t1")
+    await _seed(db_path, "r2", "t2")
+    client = _mock_nlm_client()
+    tq = TaskQueue(state_manager, client, max_concurrent=4)
+
+    # r1/t1 = not_started, r2/t2 = completed
+    await state_manager.update_cell(
+        GenerationCell(report_id="r1", template_id="t1", status=CellStatus.NOT_STARTED)
+    )
+    await state_manager.update_cell(
+        GenerationCell(report_id="r2", template_id="t2", status=CellStatus.COMPLETED, task_id="old")
+    )
+
+    cells = await state_manager.get_all_cells()
+    counts = await tq.start_all(cells)
+
+    assert counts["skipped"] >= 1  # r2/t2 is completed
+    assert counts["enqueued"] >= 1  # r1/t1 was enqueued
+
+    await tq.wait_for("r1", "t1")
+    await tq.stop_all()
+
+
+# ---------------------------------------------------------------------------
+# Polling timeout (AC 8.4)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_poll_timeout_marks_cell_failed(state_manager, db_path):
+    """_poll_until_done should raise after exceeding the 2-hour timeout."""
+    await _seed(db_path)
+    client = _mock_nlm_client()
+    # poll_status always returns in_progress so it never completes
+    client.poll_status = AsyncMock(return_value={"status": "in_progress", "progress": 50})
+    tq = TaskQueue(state_manager, client, max_concurrent=2)
+
+    # Patch _POLL_INTERVAL and the timeout to make the test fast
+    with patch("app.task_queue._POLL_INTERVAL", 0.001):
+        # Monkey-patch the method to use a tiny timeout
+        original = tq._poll_until_done
+
+        async def fast_timeout(notebook_id, task_id):
+            """Override with 0.01s timeout for testing."""
+            from app.nlm_client import NotebookLMClientError as _Err
+            elapsed = 0.0
+            interval = 0.001
+            max_secs = 0.01  # tiny timeout
+            while elapsed < max_secs:
+                result = await tq.nlm_client.poll_status(notebook_id, task_id)
+                status = result.get("status", "unknown")
+                if status == "completed":
+                    return
+                if status in ("failed", "error"):
+                    raise _Err(result.get("error") or "Generation failed")
+                await asyncio.sleep(interval)
+                elapsed += interval
+            raise _Err("Generation timed out after 2 hours")
+
+        tq._poll_until_done = fast_timeout
+
+        await tq.enqueue("r1", "t1")
+        await tq.wait_for("r1", "t1")
+
+    cell = await state_manager.get_cell("r1", "t1")
+    assert cell is not None
+    assert cell.status == CellStatus.FAILED
+    assert "timed out" in (cell.error_message or "").lower()
+
+    await tq.stop_all()

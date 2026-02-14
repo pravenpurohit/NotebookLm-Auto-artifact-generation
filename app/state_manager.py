@@ -471,6 +471,19 @@ class StateManager:
         finally:
             await self._release_db(db)
 
+    async def update_template_exclusion(self, template_id: str, is_excluded: bool) -> bool:
+        """Toggle a template's is_excluded flag. Returns True if found."""
+        db = await self._get_db()
+        try:
+            cursor = await db.execute(
+                "UPDATE templates SET is_excluded = ? WHERE id = ?",
+                (is_excluded, template_id),
+            )
+            await db.commit()
+            return cursor.rowcount > 0
+        finally:
+            await self._release_db(db)
+
     # ------------------------------------------------------------------
     # Targeted single-entity queries (avoids full load_state over-fetch)
     # ------------------------------------------------------------------
@@ -582,6 +595,34 @@ class StateManager:
             ]
         finally:
             await self._release_db(db)
+    async def find_template_by_filename(self, filename: str) -> dict | None:
+        """Find a template by filename, or None if not found."""
+        db = await self._get_db()
+        try:
+            cursor = await db.execute(
+                "SELECT id, filename, number, artifact_type, name, audio_format, "
+                "content, content_edited, is_excluded, created_at "
+                "FROM templates WHERE filename = ?",
+                (filename,),
+            )
+            row = await cursor.fetchone()
+            if row is None:
+                return None
+            return {
+                "id": row[0],
+                "filename": row[1],
+                "number": row[2],
+                "artifact_type": row[3],
+                "name": row[4],
+                "audio_format": row[5],
+                "content": row[6],
+                "content_edited": bool(row[7]),
+                "is_excluded": bool(row[8]),
+                "created_at": row[9],
+            }
+        finally:
+            await self._release_db(db)
+
 
     # ------------------------------------------------------------------
     # Artifact queries

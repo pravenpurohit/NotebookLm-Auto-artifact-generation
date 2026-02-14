@@ -7,7 +7,7 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException, UploadFile
 
 from app.dependencies import get_state_manager, get_template_detector
-from app.models import UpdateTemplateRequest
+from app.models import UpdateTemplateRequest, UpdateTemplateExclusionRequest
 from app.state_manager import StateManager
 from app.template_detector import TemplateDetector
 
@@ -26,8 +26,16 @@ async def add_template(
     sm: StateManager = Depends(get_state_manager),
     detector: TemplateDetector = Depends(get_template_detector),
 ):
-    """Add a custom template file (Req 4.11)."""
+    """Add a custom template file (Req 4.11, AC 2.5, 2.8)."""
     filename = file.filename or "unknown.md"
+
+    # AC 2.8: reject non-.md files
+    if not filename.lower().endswith(".md"):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Only .md files are accepted. Got: {filename}",
+        )
+
     content = (await file.read()).decode("utf-8")
 
     info = detector.parse_filename(filename)
@@ -47,6 +55,14 @@ async def add_template(
                 status_code=400,
                 detail="Cannot determine artifact type from filename or content.",
             )
+
+    # AC 2.5: check for existing template with same filename — update instead of duplicate
+    existing = await sm.find_template_by_filename(filename)
+    if existing:
+        await sm.update_template_content(existing["id"], content)
+        existing["content"] = content
+        existing["content_edited"] = True
+        return existing
 
     template_id = str(uuid.uuid4())
     template = {
@@ -75,3 +91,20 @@ async def update_template(
     if not found:
         raise HTTPException(status_code=404, detail="Template not found")
     return {"status": "updated", "template_id": template_id}
+
+
+@router.patch("/{template_id}/exclude")
+async def update_template_exclusion(
+    template_id: str,
+    body: UpdateTemplateExclusionRequest,
+    sm: StateManager = Depends(get_state_manager),
+):
+    """Toggle a template's exclusion status (Req 3.4)."""
+    found = await sm.update_template_exclusion(template_id, body.is_excluded)
+    if not found:
+        raise HTTPException(status_code=404, detail="Template not found")
+    return {
+        "status": "updated",
+        "template_id": template_id,
+        "is_excluded": body.is_excluded,
+    }

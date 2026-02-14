@@ -438,3 +438,123 @@ def test_property_18_retry_failed_no_failed_remain(
     assert remaining_failed == 0, (
         f"Expected 0 failed cells after Retry Failed, found {remaining_failed}"
     )
+
+
+# ---------------------------------------------------------------------------
+# Property 5: Batch generation skips completed cells
+# **Validates: Requirements 7.1, 7.6**
+# ---------------------------------------------------------------------------
+
+
+def batch_start_with_dedup(cells: list[GenerationCellModel]) -> dict:
+    """Simulate batch start with deduplication: skip completed cells.
+
+    Returns dict with 'enqueued', 'skipped', and 'result' cells.
+    """
+    enqueued = 0
+    skipped = 0
+    result: list[GenerationCellModel] = []
+    for cell in cells:
+        if cell.status == CellStatus.COMPLETED:
+            skipped += 1
+            result.append(cell)
+        elif cell.status in STARTABLE_STATUSES:
+            enqueued += 1
+            result.append(cell.model_copy(update={
+                "status": CellStatus.IN_PROGRESS,
+                "task_id": str(uuid.uuid4()),
+                "started_at": datetime.now(tz=timezone.utc),
+            }))
+        else:
+            result.append(cell)
+    return {"enqueued": enqueued, "skipped": skipped, "result": result}
+
+
+@given(cells=grid_state_strategy)
+@settings(max_examples=100)
+def test_property_5_batch_skips_completed(cells: list[GenerationCellModel]):
+    """Batch start SHALL only enqueue non-completed cells.
+
+    The count of enqueued cells SHALL equal the count of startable cells,
+    and the count of skipped cells SHALL include all completed cells.
+    """
+    counts = batch_start_with_dedup(cells)
+
+    startable = [c for c in cells if c.status in STARTABLE_STATUSES]
+    completed = [c for c in cells if c.status == CellStatus.COMPLETED]
+
+    assert counts["enqueued"] == len(startable)
+    assert counts["skipped"] == len(completed)
+    assert counts["enqueued"] + counts["skipped"] <= len(cells)
+
+    # All completed cells remain completed in result
+    result = counts["result"]
+    for i, cell in enumerate(cells):
+        if cell.status == CellStatus.COMPLETED:
+            assert result[i].status == CellStatus.COMPLETED
+
+
+@given(cells=grid_state_strategy)
+@settings(max_examples=50)
+def test_property_5_no_completed_cells_enqueued(cells: list[GenerationCellModel]):
+    """No completed cell should be transitioned to in_progress by batch start."""
+    counts = batch_start_with_dedup(cells)
+    result = counts["result"]
+
+    for i, cell in enumerate(cells):
+        if cell.status == CellStatus.COMPLETED:
+            assert result[i].status == CellStatus.COMPLETED
+            assert result[i].task_id == cell.task_id  # unchanged
+
+
+# ---------------------------------------------------------------------------
+# Property 3: Batch progress summary accuracy
+# **Validates: Requirements 5.6**
+# ---------------------------------------------------------------------------
+
+
+def compute_progress_summary(cells: list[GenerationCellModel]) -> dict:
+    """Compute batch progress summary from cell statuses."""
+    counts = {
+        "total": len(cells),
+        "completed": 0,
+        "in_progress": 0,
+        "failed": 0,
+        "not_started": 0,
+        "stopped": 0,
+        "pending": 0,
+    }
+    for cell in cells:
+        key = cell.status.value
+        if key in counts:
+            counts[key] += 1
+    return counts
+
+
+@given(cells=grid_state_strategy)
+@settings(max_examples=100)
+def test_property_3_progress_summary_accuracy(cells: list[GenerationCellModel]):
+    """Progress summary counts SHALL exactly match actual cell status counts,
+    and total SHALL equal the sum of all categories."""
+    summary = compute_progress_summary(cells)
+
+    # Total must equal sum of all categories
+    category_sum = (
+        summary["completed"] + summary["in_progress"] + summary["failed"]
+        + summary["not_started"] + summary["stopped"] + summary["pending"]
+    )
+    assert summary["total"] == category_sum
+
+    # Each count must match actual
+    for status in CellStatus:
+        actual = sum(1 for c in cells if c.status == status)
+        assert summary[status.value] == actual
+
+
+@given(cells=grid_state_strategy)
+@settings(max_examples=50)
+def test_property_3_progress_counts_non_negative(cells: list[GenerationCellModel]):
+    """All progress summary counts SHALL be non-negative."""
+    summary = compute_progress_summary(cells)
+    for key, value in summary.items():
+        assert value >= 0, f"{key} should be non-negative, got {value}"

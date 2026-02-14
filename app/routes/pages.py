@@ -20,7 +20,7 @@ router = APIRouter(tags=["pages"])
 @router.get("/", response_class=HTMLResponse)
 async def index(request: Request) -> HTMLResponse:
     """Serve the login page."""
-    return templates.TemplateResponse("login.html", {"request": request})
+    return templates.TemplateResponse(request, "login.html")
 
 
 @router.get("/dashboard", response_class=HTMLResponse)
@@ -48,8 +48,9 @@ async def dashboard(request: Request) -> HTMLResponse:
         "cells": [cell_to_dict(c) for c in state["cells"]],
     }
     return templates.TemplateResponse(
+        request,
         "dashboard.html",
-        {"request": request, "grid_data": grid_data, "active_page": "dashboard"},
+        {"grid_data": grid_data, "active_page": "dashboard"},
     )
 
 
@@ -57,8 +58,7 @@ async def dashboard(request: Request) -> HTMLResponse:
 async def files(request: Request) -> HTMLResponse:
     """Serve the file browser page (Req 2.1, 2.2, 2.3, 2.5, 3.1, 3.2)."""
     return templates.TemplateResponse(
-        "file_browser.html",
-        {"request": request, "active_page": "files"},
+        request, "file_browser.html", {"active_page": "files"},
     )
 
 
@@ -66,6 +66,21 @@ async def files(request: Request) -> HTMLResponse:
 async def artifacts_page(request: Request) -> HTMLResponse:
     """Serve the artifact browser page (Req 11.1-11.6)."""
     return templates.TemplateResponse(
-        "artifacts.html",
-        {"request": request, "active_page": "artifacts"},
+        request, "artifacts.html", {"active_page": "artifacts"},
+    )
+
+
+@router.get("/prompts", response_class=HTMLResponse)
+async def prompts_page(request: Request) -> HTMLResponse:
+    """Serve the prompt browser page."""
+    return templates.TemplateResponse(
+        request, "prompts.html", {"active_page": "prompts"},
+    )
+
+
+@router.get("/processing", response_class=HTMLResponse)
+async def processing_page(request: Request) -> HTMLResponse:
+    """Serve the processing matrix page."""
+    return templates.TemplateResponse(
+        request, "processing.html", {"active_page": "processing"},
     )

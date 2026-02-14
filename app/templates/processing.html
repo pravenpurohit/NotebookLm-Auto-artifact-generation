@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+
+{% block title %}Processing – NotebookLM Dashboard{% endblock %}
+
+{% block content %}
+<section class="processing-page" aria-label="Processing Matrix">
+
+  <!-- Batch control bar -->
+  <div class="batch-bar" role="toolbar" aria-label="Batch controls">
+    <button class="btn btn-batch" id="proc-start-all" type="button">Start All</button>
+    <button class="btn btn-batch" id="proc-pause" type="button">Pause</button>
+    <button class="btn btn-batch" id="proc-resume" type="button">Resume</button>
+    <button class="btn btn-batch" id="proc-stop-all" type="button">Stop All</button>
+    <button class="btn btn-batch" id="proc-retry-failed" type="button">Retry Failed</button>
+    <a href="/api/artifacts/download-all" class="btn btn-download" id="proc-download-all">Download All ⬇</a>
+    <span class="batch-status" id="proc-batch-status" aria-live="polite"></span>
+  </div>
+
+  <!-- Progress summary -->
+  <div class="progress-summary" id="proc-progress" role="status" aria-live="polite">
+    <span id="proc-progress-text">Loading…</span>
+    <div class="progress-bar-track" aria-hidden="true">
+      <div class="progress-bar-fill" id="proc-progress-bar" style="width:0%"></div>
+    </div>
+  </div>
+
+  <!-- WebSocket indicator -->
+  <div class="ws-indicator" id="proc-ws-indicator" role="alert" aria-live="assertive" style="display:none;"></div>
+
+  <!-- Desktop: matrix grid -->
+  <div class="grid-wrapper" id="proc-grid-wrapper">
+    <table class="status-grid" id="proc-grid" role="grid" aria-label="Processing Matrix">
+      <thead>
+        <tr>
+          <th class="grid-corner sticky-col" scope="col">Report \ Template</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <!-- Mobile: card layout -->
+  <div class="card-list" id="proc-card-list" aria-label="Processing Cards"></div>
+
+  <!-- Empty state -->
+  <p class="empty-msg" id="proc-empty-msg" style="display:none;">No reports or templates found. Upload files and prompts first.</p>
+
+  <!-- Tooltip -->
+  <div class="cell-tooltip" id="proc-tooltip" role="tooltip" aria-hidden="true">
+    <div class="tooltip-row"><span class="tooltip-label">Task ID:</span> <span id="proc-tip-task-id">—</span></div>
+    <div class="tooltip-row"><span class="tooltip-label">Started:</span> <span id="proc-tip-started">—</span></div>
+    <div class="tooltip-row"><span class="tooltip-label">Elapsed:</span> <span id="proc-tip-elapsed">—</span></div>
+    <div class="tooltip-row tooltip-error"><span class="tooltip-label">Error:</span> <span id="proc-tip-error">—</span></div>
+  </div>
+
+  <div id="proc-announcements" class="sr-only" aria-live="polite" role="status"></div>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+<script src="/static/js/processing.js"></script>
+{% endblock %}
