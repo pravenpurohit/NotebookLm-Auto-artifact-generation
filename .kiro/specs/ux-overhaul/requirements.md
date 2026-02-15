@@ -117,9 +117,12 @@ A complete UX overhaul of the NotebookLM Dashboard application. The current app 
 2. WHEN the Session expires during an active generation (WebSocket receives auth error or API returns 401), THE App SHALL pause the task queue, display a modal re-authentication prompt, and resume queued tasks after successful re-authentication
 3. WHEN the user navigates directly to a URL for a locked Wizard_Step (e.g., `/dashboard?step=3` with no reports), THE App SHALL redirect to the earliest incomplete step and display a toast notification explaining why
 4. WHEN a file upload fails due to network error, invalid format, or exceeding the 50MB size limit, THE App SHALL display an inline error message below the upload area specifying the failure reason, and preserve the file selection for retry
-5. IF a Generation_Cell fails, THEN THE App SHALL display the error_message in the cell's tooltip on hover and show a retry icon button within the cell
-6. WHEN the user clicks "Clear All Data" in Settings, THE App SHALL display a confirmation dialog listing: number of reports, templates, cells, and artifacts to be deleted, with "Cancel" and "Confirm Delete" buttons
-7. WHEN the WebSocket connection drops, THE App SHALL display the Reconnection_Indicator banner ("Connection lost — reconnecting...") and attempt reconnection with exponential backoff (1s, 2s, 4s, 8s, max 30s), removing the banner on successful reconnect
+5. THE App SHALL enforce a 50MB maximum file size limit on the server side (FastAPI route), rejecting uploads that exceed the limit with HTTP 413 and a descriptive error message before writing to disk
+6. WHEN a user uploads a non-`.md` file as a template in Step 2 or Settings, THE App SHALL reject the file with a format validation error specifying that only `.md` files are accepted
+7. WHEN a user navigates to a removed legacy URL (`/files`, `/prompts`, `/processing`, `/artifacts`), THE App SHALL redirect (HTTP 301) to the appropriate Wizard_Step on `/dashboard` or to `/settings`
+8. IF a Generation_Cell fails, THEN THE App SHALL display the error_message in the cell's tooltip on hover and show a retry icon button within the cell
+9. WHEN the user clicks "Clear All Data" in Settings, THE App SHALL display a confirmation dialog listing: number of reports, templates, cells, and artifacts to be deleted, with "Cancel" and "Confirm Delete" buttons
+10. WHEN the WebSocket connection drops, THE App SHALL display the Reconnection_Indicator banner ("Connection lost — reconnecting...") and attempt reconnection with exponential backoff (1s, 2s, 4s, 8s, max 30s), removing the banner on successful reconnect
 
 ### Requirement 8: Responsive Design
 
@@ -147,7 +150,82 @@ A complete UX overhaul of the NotebookLM Dashboard application. The current app 
 6. THE App SHALL provide visible text labels or `aria-label` attributes on all icon-only buttons (hamburger menu, settings gear, cell action icons, close buttons)
 7. WHEN a modal dialog (confirmation, re-auth prompt) is displayed, THE App SHALL trap keyboard focus within the dialog until dismissed, and return focus to the triggering element on close
 
-### Requirement 10: Settings and Advanced Operations
+### Requirement 10: Authentication and Session Management
+
+**User Story:** As a user, I want reliable Google authentication that handles session expiry gracefully so that I can use the app without terminal access or manual cookie management.
+
+#### Acceptance Criteria
+
+1. WHEN the App starts with no stored credentials, THE Login page SHALL display a "Sign in with Google" button that loads cookies from the notebooklm-py SDK's browser storage state (`~/.notebooklm/storage_state.json`) and fetches CSRF token and session ID
+2. WHEN the stored browser cookies are valid, THE App SHALL construct a `SessionCredentials` instance (cookies, csrf_token, session_id) and redirect to `/dashboard`
+3. IF no browser storage state exists or cookies are expired, THEN THE Login page SHALL display a "Re-authenticate with Google" button that launches a non-headless Playwright Chromium browser navigated to `https://notebooklm.google.com/`
+4. WHEN the Playwright browser is launched for re-authentication, THE App SHALL run the synchronous Playwright operations in a background thread using `threading.Thread` and communicate status via `queue.Queue` (not `asyncio.Queue`) to avoid blocking the FastAPI async event loop
+5. WHILE the Playwright browser is open, THE App SHALL poll the browser page URL at 1-second intervals using the `is_login_complete()` function to detect when the user has finished Google login (URL is `notebooklm.google.com` without `/login` or `/signin` paths)
+6. WHEN login completion is detected, THE App SHALL save the Playwright browser storage state, extract cookies, call `fetch_tokens()` to obtain CSRF token and session ID, and update the shared `SessionCredentials` instance
+7. WHEN credentials are updated after re-authentication, THE App SHALL call `nlm_client.reinit_client()` to re-initialize the SDK client with the new credentials so all subsequent API calls use the fresh session
+8. THE App SHALL stream re-authentication status to the frontend via Server-Sent Events (SSE) with phases: `browser_launched`, `waiting_for_login`, `login_detected`, `authenticated`, `error`, `timeout`, `cancelled`
+9. IF the user does not complete login within 120 seconds, THEN THE App SHALL close the Playwright browser, clean up the reauth session, and emit a `timeout` error via SSE
+10. IF the Playwright browser is closed by the user before login completes, THEN THE App SHALL detect the closure (via exception when reading `page.url`), clean up the session, and emit a `cancelled` error via SSE
+11. THE App SHALL prevent concurrent re-authentication sessions by rejecting new reauth requests with HTTP 409 while one is active, using a `threading.Lock` to guard the session state
+12. IF Playwright is not installed or Chromium is not available, THEN THE App SHALL return HTTP 503 with a message suggesting `playwright install chromium`
+13. WHEN the App shuts down (lifespan shutdown), THE App SHALL call `cleanup_reauth()` to cancel any active reauth session and join the background thread, preventing orphaned Chromium processes
+14. THE App SHALL sanitize all error messages before sending to the frontend, stripping Python tracebacks, `File "..."` references, internal module paths, and raw exception class names while preserving actionable information
+15. WHEN the user clicks Logout, THE App SHALL clear all fields on the `SessionCredentials` instance (cookies, csrf_token, session_id, token, user_email) and redirect to the login page
+16. THE App SHALL use the `sse-starlette` library (pinned in `requirements.txt`) for Server-Sent Events streaming in the reauth flow
+
+### Requirement 11: NLM Client SDK Sub-API Compatibility
+
+**User Story:** As a developer, I want the NLM client wrapper to correctly call the notebooklm-py SDK sub-API methods so that all remote operations work.
+
+#### Acceptance Criteria
+
+1. WHEN the wrapper calls notebook operations, IT SHALL use the sub-API pattern: `client.notebooks.list()`, `client.notebooks.create(title=name)`, `client.notebooks.delete(notebook_id=id)`
+2. WHEN the wrapper calls artifact operations, IT SHALL use: `client.artifacts.list(notebook_id=id)`, `client.artifacts.delete(notebook_id=id, artifact_id=id)`, and the type-specific `client.artifacts.generate_infographic()`, `client.artifacts.generate_audio()`, `client.artifacts.generate_video()` methods
+3. WHEN the wrapper adds a source to a notebook, IT SHALL use `client.sources.add_file(notebook_id=id, file_path=path)`
+4. WHEN the wrapper polls generation status, IT SHALL use `client.artifacts.poll_status(notebook_id=id, task_id=id)`
+5. WHEN the wrapper downloads an artifact, IT SHALL use the type-specific `client.artifacts.download_infographic()`, `client.artifacts.download_audio()`, `client.artifacts.download_video()` methods
+6. ALL wrapper methods SHALL correctly handle the SDK's return types (`Notebook`, `Artifact`, `GenerationStatus`, `Source`) and extract the appropriate fields
+7. WHEN initializing the SDK client, THE wrapper SHALL verify that the `notebooks`, `artifacts`, and `sources` sub-API attributes exist on the client object, and log an error and set client to None if any are missing
+
+### Requirement 12: Deduplication and Idempotent Processing
+
+### Requirement 12: Deduplication and Idempotent Processing
+
+**User Story:** As a user, I want the system to detect duplicate uploads and duplicate generation requests so that I do not waste time and API calls.
+
+#### Acceptance Criteria
+
+1. WHEN a Report is uploaded, THE App SHALL compute a SHA-256 content hash of the file and store it in the report record
+2. WHEN a Report with the same content hash already exists in the database, THE App SHALL warn the user and offer to reuse the existing report or create a new one
+3. WHEN generation is requested for a (Report, Template) pair that already has a completed Generation_Cell with a matching prompt content hash, THE App SHALL skip generation and display the cell as "completed" with a "Already processed" indicator
+4. WHEN a Template's content is edited, THE App SHALL recompute the prompt content hash so that re-running with the edited prompt is treated as a new generation task
+5. WHEN batch generation starts, THE App SHALL skip all cells with status "completed" and only enqueue cells with status "not_started", "pending", or "failed", displaying a count of skipped cells
+
+### Requirement 13: Deletion Sync with NotebookLM
+
+**User Story:** As a user, I want deletions in this app to be reflected in my NotebookLM account so that I do not have orphaned notebooks or artifacts.
+
+#### Acceptance Criteria
+
+1. WHEN a user deletes an artifact from the App, THE App SHALL also delete the artifact from the remote NotebookLM notebook via the SDK
+2. WHEN a user deletes a report from the App, THE App SHALL delete all associated Generation_Cells and offer to delete the corresponding remote notebook
+3. IF a remote deletion fails, THEN THE App SHALL still delete the local record but display a warning that the remote deletion failed
+4. WHEN a user initiates any deletion, THE App SHALL display a confirmation dialog before proceeding
+
+### Requirement 14: Template Detection and Artifact Naming
+
+**User Story:** As a user, I want templates to be automatically classified by type and artifacts to be named meaningfully so that I can identify everything without manual configuration.
+
+#### Acceptance Criteria
+
+1. WHEN loading templates, THE App SHALL parse each filename using the regex `^(\d+)_([^_]+)_(.+)\.md$` to extract number, type, and name
+2. WHEN a template filename type portion matches "Infographic", "Audio", or "Video", THE App SHALL classify the template accordingly
+3. WHEN a template filename contains "DeepDive", "TheBrief", "Critique", or "Debate" in the name portion, THE App SHALL set the corresponding audio format (DEEP_DIVE, BRIEF, CRITIQUE, DEBATE)
+4. IF the template type cannot be determined from the filename, THEN THE App SHALL fall back to content-based detection by scanning for type keywords in the file content
+5. WHEN an artifact is generated, THE App SHALL derive the artifact name from the template's `{Name}` portion and append the correct file extension (.png for infographic, .mp3 for audio, .mp4 for video)
+6. WHEN the template filename is "01_Steering Prompt.md", THE App SHALL exclude it from the active template list
+
+### Requirement 15: Settings and Advanced Operations
 
 **User Story:** As an experienced user, I want access to advanced operations so that I can manage templates, reports, and cached data outside the wizard flow.
 
@@ -155,6 +233,18 @@ A complete UX overhaul of the NotebookLM Dashboard application. The current app 
 
 1. THE App SHALL serve a `/settings` route with sections: Template Management, Report Management, Data Management, and Sync
 2. THE Settings_Page Template Management section SHALL allow: uploading new templates, editing template content inline, deleting user-uploaded templates, and a "Restore Defaults" button that reloads Default_Templates from disk
-3. THE Settings_Page Report Management section SHALL allow: uploading new reports, editing the notebook name mapping for each report, and deleting reports (with confirmation showing affected Generation_Cells)
+3. THE Settings_Page Report Management section SHALL allow: uploading new reports, editing the notebook name mapping for each report, and deleting reports (with confirmation showing affected Generation_Cells and option to delete remote notebook per Requirement 12.2)
 4. THE Settings_Page Data Management section SHALL provide a "Clear All Data" button that, after confirmation per Requirement 7.6, deletes all rows from reports, templates, generation_cells, and artifacts tables and removes files from `data/uploads/` and `output/`
 5. THE Settings_Page Sync section SHALL provide a "Sync Now" button that triggers NLM_Sync on demand with a progress indicator, and display the timestamp of the last successful sync
+
+### Requirement 16: Long-Running Task Handling
+
+**User Story:** As a user, I want the app to handle long-running generation tasks (up to 1 hour for videos) without losing track of progress.
+
+#### Acceptance Criteria
+
+1. WHILE a generation task is in progress, THE App SHALL poll the NLM SDK for status updates every 5 seconds and display elapsed time in the Generation_Cell
+2. WHEN the user refreshes the browser during a long-running task, THE App SHALL reconnect to the WebSocket and restore the current state from the server, showing all in-progress tasks with their current status
+3. WHEN the App restarts while tasks are in progress, THE App SHALL detect in-progress Generation_Cells during startup and resume polling for their Task_IDs
+4. THE App SHALL set a maximum polling timeout of 2 hours, after which it marks the Generation_Cell as "failed" with a timeout error message
+5. WHEN a user attempts to start generation for a cell that is already "in_progress", THE App SHALL display a message indicating generation is already running and show the elapsed time
