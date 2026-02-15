@@ -180,6 +180,9 @@ Technology stack: FastAPI (Python), SQLite via aiosqlite, Jinja2 templates, vani
 15. WHEN the user clicks Logout, THE App SHALL clear all fields on the SessionCredentials instance (cookies, csrf_token, session_id, token, user_email) and redirect to the login page
 16. WHEN the SSE_Stream emits an `authenticated` event, THE Login page SHALL redirect the user to `/dashboard`
 17. WHEN the SSE_Stream emits an `error`, `timeout`, or `cancelled` event, THE Login page SHALL display the error message and re-enable the "Re-authenticate" button
+18. IF the SSE_Stream connection drops before an `authenticated` or terminal event, THEN THE Login page SHALL display a "Connection lost" message and allow the user to retry
+19. WHILE a reauth session is in progress, THE Login page SHALL disable the "Re-authenticate" button to prevent duplicate sessions
+20. THE App SHALL provide a `GET /api/auth/status` endpoint that returns `{"authenticated": true/false}` by validating the current SessionCredentials against the SDK
 
 ### Requirement 11: NLM Client SDK Integration
 
